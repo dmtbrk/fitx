@@ -2,10 +2,13 @@ import { describe, expect, it } from "vitest";
 import {
   buildEditIssues,
   buildInsertedMessageIssues,
+} from "./validation";
+import {
   clearDeletedMessageEditor,
   deleteMessageSessionState,
   describeInsertPosition,
   normalizeInsertPosition,
+  shouldDownloadImmediately,
 } from "./useFitEditorSession";
 import { buildEditOverlay, getEditsForMessage, isMessageDeleted } from "./editOverlay";
 import type { FitDataRecord, FitDocument, FitField, FitFieldValueEdit } from "../fit";
@@ -215,6 +218,45 @@ describe("fit editor session issue mapping", () => {
       afterMessageId: document.messages[1].id,
       beforeMessageId: document.messages[2].id,
     });
+  });
+
+  it("downloads immediately only when validation has no issues", () => {
+    expect(
+      shouldDownloadImmediately({
+        issues: [],
+        hasExportBlockingIssues: false,
+      }),
+    ).toBe(true);
+    expect(
+      shouldDownloadImmediately({
+        issues: [
+          {
+            id: "warning-1",
+            code: "warning",
+            severity: "warning",
+            scope: "file",
+            exportBlocking: false,
+            title: "Warning",
+          },
+        ],
+        hasExportBlockingIssues: false,
+      }),
+    ).toBe(false);
+    expect(
+      shouldDownloadImmediately({
+        issues: [
+          {
+            id: "blocking-1",
+            code: "blocking",
+            severity: "export-blocking",
+            scope: "message",
+            exportBlocking: true,
+            title: "Blocking",
+          },
+        ],
+        hasExportBlockingIssues: true,
+      }),
+    ).toBe(false);
   });
 });
 

@@ -1,9 +1,8 @@
 export * from "./editSession";
 export * from "./editOverlay";
 export * from "./viewModel";
+export * from "./validation";
 export {
-  buildEditIssues,
-  buildFileIssues,
   collectEditedMessageIdsFromEdits,
   describeInsertPosition,
   getFitEditorStatusHelper,
@@ -13,7 +12,6 @@ export {
   useFitEditorSession,
 } from "./useFitEditorSession";
 export type {
-  FitEditorIssue,
   FitEditorSession,
   FitEditorState,
   FitInsertPosition,

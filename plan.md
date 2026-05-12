@@ -69,6 +69,14 @@ Completed raw add-message slice:
 - Export emits a temporary definition record before each inserted raw data record, then restores the prior definition for reused local message types.
 - Added unit and Playwright coverage for insert labels, validation blocking, cancel/apply behavior, repeated insertion near staged messages, export order, and recalculated CRCs.
 
+Completed validation/export hardening slice:
+
+- Added a non-React editor validation boundary that accepts the loaded FIT document plus canonical edit overlay and returns typed issues with stable codes, severity, and export-blocking classification.
+- Moved file, edited-field, inserted-message, and inserted-position issue construction out of the session hook into the validation boundary.
+- Download now recomputes validation immediately before gating; any issue opens the Issues dialog first, while export-blocking issues prevent Download anyway.
+- Checksum/file issues remain warnings, representable invalid values remain warnings, and writer-impossible edit/insert shapes remain export-blocking.
+- Added unit coverage for warning/blocking partitioning, invalid insert anchors, and immediate-download gating.
+
 Known Phase 1 limits:
 
 - `scripts/generate-fit-profile.mjs` is intentionally still a scaffold; the committed generated profile artifact is small representative metadata for tests and early UI work, not the full Garmin profile.
@@ -81,7 +89,7 @@ Architecture review findings:
 - The current app works, but the production shape is still too POC-like: `App.tsx` owns app state, UI composition, issue synthesis, filtering, virtualization, and download/export orchestration.
 - The live app now uses the canonical `src/editor/editOverlay.ts` model; the legacy `src/fit/edits.ts` FitEditSet has been retired before add-message, duplicate, delete, undo, and insight tooling are expanded.
 - The legacy `src/lib/fitParser.ts` parser path has been retired; the production codebase now has one FIT document model.
-- Validation is split across UI parsing, edit-session helpers, generic validation, and App-level issue mapping. V1 needs typed issue objects and one validation boundary.
+- Validation now has one editor preflight boundary for the current document plus edit overlay; future work should decide which validations migrate deeper into `fit` as the writer/profile model matures.
 - Whole-document parsing/export/validation and broad view-model derivation currently run on the UI thread; workerization and indexed selectors should be part of the production architecture before large-file and analysis features grow.
 
 ## Product Goal

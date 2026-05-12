@@ -2,16 +2,13 @@ import { useMemo, useState, type Dispatch, type SetStateAction } from "react";
 import type {
   FitDataRecord,
   FitDocument,
-  FitField,
   FitFieldValueEdit,
-  FitFileIssue,
   FitInsertedMessage,
 } from "../fit";
 import { parseFitDocument, writeFitDocument } from "../fit";
 import {
   buildFitViewModel,
   filterFitMessages,
-  getFitMessageTimestampLabel,
   type FitMessageFilter,
   type FitQuickMessageViewModel,
 } from "./viewModel";
@@ -30,31 +27,22 @@ import {
   type FitEditOverlay,
 } from "./editOverlay";
 import {
-  createMessageEditDraft,
   buildMessageSnapshotFromAppliedEdits,
   createRawInsertedMessage,
-  getDraftIssues,
   type FitRawInsertedMessageInput,
   validateRawInsertedMessageInput,
-  type FitDraftIssue,
 } from "./editSession";
+import {
+  type FitEditorIssue,
+  type FitEditorValidationResult,
+  validateFitEditorDocument,
+} from "./validation";
 
 export type FitEditorState =
   | { status: "empty" }
   | { status: "loading"; fileName: string }
   | { status: "loaded"; fileName: string; document: FitDocument }
   | { status: "error"; message: string };
-
-export interface FitEditorIssue {
-  readonly id: string;
-  readonly scope: "file" | "message";
-  readonly exportBlocking?: boolean;
-  readonly title: string;
-  readonly description?: string;
-  readonly messageId?: string;
-  readonly messageName?: string;
-  readonly timestampLabel?: string;
-}
 
 export interface FitEditorSession {
   readonly state: FitEditorState;
@@ -122,6 +110,10 @@ type FitEditorTarget =
     };
 
 const defaultFilter: FitMessageFilter = "all";
+const EMPTY_VALIDATION_RESULT = {
+  issues: [],
+  hasExportBlockingIssues: false,
+} as const;
 
 export function useFitEditorSession(): FitEditorSession {
   const [state, setState] = useState<FitEditorState>({ status: "empty" });
@@ -154,20 +146,14 @@ export function useFitEditorSession(): FitEditorSession {
     () => (editingTarget?.kind === "duplicate" ? [] : overlayAppliedEdits),
     [editingTarget, overlayAppliedEdits],
   );
-  const editIssues = useMemo(
+  const validation = useMemo(
     () =>
       loaded
-        ? [
-            ...buildEditIssues(loaded.document, overlayAppliedEdits),
-            ...buildInsertedMessageIssues(collectInsertedMessages(editOverlay), loaded.document),
-          ]
-        : [],
-    [editOverlay, loaded, overlayAppliedEdits],
+        ? validateFitEditorDocument(loaded.document, editOverlay)
+        : EMPTY_VALIDATION_RESULT,
+    [editOverlay, loaded],
   );
-  const issues = useMemo(
-    () => (loaded ? [...buildFileIssues(loaded.document), ...editIssues] : []),
-    [editIssues, loaded],
-  );
+  const issues = validation.issues;
   const editedMessageIds = useMemo(
     () => collectEditedMessageIdsFromOverlay(editOverlay),
     [editOverlay],
@@ -227,8 +213,7 @@ export function useFitEditorSession(): FitEditorSession {
   const issueCount = issues.length;
   const editCount = countEditOverlayEdits(editOverlay);
   const showDownloadAction =
-    issuesOpenedFromDownload &&
-    !issues.some((issue) => issue.exportBlocking);
+    issuesOpenedFromDownload && !validation.hasExportBlockingIssues;
   const editingMessageCanAddFields =
     editingTarget?.kind !== "duplicate" &&
     !(
@@ -298,7 +283,12 @@ export function useFitEditorSession(): FitEditorSession {
       return;
     }
 
-    if (issues.length > 0) {
+    const nextValidation = validateFitEditorDocument(
+      loaded.document,
+      editOverlay,
+    );
+
+    if (!shouldDownloadImmediately(nextValidation)) {
       setIssuesOpenedFromDownload(true);
       setIssuesOpen(true);
       return;
@@ -318,7 +308,12 @@ export function useFitEditorSession(): FitEditorSession {
       return;
     }
 
-    if (issues.some((issue) => issue.exportBlocking)) {
+    const nextValidation = validateFitEditorDocument(
+      loaded.document,
+      editOverlay,
+    );
+
+    if (nextValidation.hasExportBlockingIssues) {
       return;
     }
 
@@ -538,6 +533,15 @@ export function collectEditedMessageIdsFromEdits(
   return collectEditedMessageIdsFromOverlay(buildEditOverlay(edits));
 }
 
+export function shouldDownloadImmediately(
+  validation: Pick<
+    FitEditorValidationResult,
+    "issues" | "hasExportBlockingIssues"
+  >,
+): boolean {
+  return validation.issues.length === 0 && !validation.hasExportBlockingIssues;
+}
+
 export function describeInsertPosition(
   document: { readonly messages: readonly FitInsertMessageSummary[] },
   position: FitInsertPosition,
@@ -730,63 +734,6 @@ export function getFitEditorStatusHelper(
     : "Use Upload in the header, or drop a .fit file here to inspect its messages in file order.";
 }
 
-export function buildEditIssues(
-  document: FitDocument,
-  appliedEdits: readonly FitFieldValueEdit[],
-): FitEditorIssue[] {
-  const editsByMessageId = groupEditsByMessageId(appliedEdits);
-  return [...editsByMessageId.entries()].flatMap(
-    ([messageId, messageEdits]) => {
-      const message = document.messages.find(
-        (candidate) => candidate.id === messageId,
-      );
-      if (!message) {
-        return [];
-      }
-
-      const draft = createMessageEditDraft(message, messageEdits);
-      const editedFieldIds = getAppliedEditFieldIds(
-        messageId,
-        message.fields,
-        messageEdits,
-      );
-      return getDraftIssues(draft)
-        .filter((issue) => editedFieldIds.has(issue.fieldId))
-        .flatMap((issue) => draftIssueToFitEditorIssues(message, issue));
-    },
-  );
-}
-
-export function buildInsertedMessageIssues(
-  insertedMessages: ReadonlyMap<string, FitInsertedMessage> | Iterable<FitInsertedMessage>,
-  document?: FitDocument,
-): FitEditorIssue[] {
-  const iterator =
-    insertedMessages instanceof Map
-      ? insertedMessages.values()
-      : insertedMessages;
-
-  return [...iterator].flatMap((insertedMessage) => {
-    const positionIssues =
-      document && insertedMessage.origin === "raw"
-        ? buildInsertedMessagePositionIssues(insertedMessage, document)
-        : [];
-    const draft = createMessageEditDraft(insertedMessage.message);
-    return [
-      ...positionIssues,
-      ...getDraftIssues(draft).flatMap((issue) =>
-        draftIssueToFitEditorIssues(insertedMessage.message, issue),
-      ),
-    ];
-  });
-}
-
-export function buildFileIssues(document: FitDocument): FitEditorIssue[] {
-  return document.issues.map((issue, index) =>
-    fileIssueToFitEditorIssue(issue, index),
-  );
-}
-
 export function clearDeletedMessageEditor(
   editingMessageId: string | null,
   deletedMessageId: string,
@@ -843,143 +790,6 @@ function createRawInsertedMessageId(globalMessageNumber: number): string {
       : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 
   return `raw-${globalMessageNumber}-${randomSegment}`;
-}
-
-function buildInsertedMessagePositionIssues(
-  insertedMessage: FitInsertedMessage,
-  document: FitDocument,
-): FitEditorIssue[] {
-  const anchorMessageIds = [
-    insertedMessage.position.afterMessageId ?? insertedMessage.sourceMessageId,
-    insertedMessage.position.beforeMessageId,
-  ].filter((messageId): messageId is string => typeof messageId === "string" && messageId.length > 0);
-
-  if (anchorMessageIds.length === 0) {
-    return [
-      {
-        id: `${insertedMessage.id}:position`,
-        scope: "message",
-        exportBlocking: true,
-        title: `${insertedMessage.message.messageName} has invalid insert position`,
-        description: "Insert position must reference a message before or after the inserted record.",
-        messageId: insertedMessage.id,
-        messageName: insertedMessage.message.messageName,
-      },
-    ];
-  }
-
-  const resolvedAnchorMessageId = anchorMessageIds.find((anchorMessageId) =>
-    document.messages.some((message) => message.id === anchorMessageId),
-  );
-  if (resolvedAnchorMessageId) {
-    return [];
-  }
-
-  for (const anchorMessageId of anchorMessageIds) {
-    if (document.messages.some((message) => message.id === anchorMessageId)) {
-      return [];
-    }
-  }
-
-  return [
-    {
-      id: `${insertedMessage.id}:position`,
-      scope: "message",
-      exportBlocking: true,
-      title: `${insertedMessage.message.messageName} has invalid insert position`,
-      description: `Anchor message ${anchorMessageIds.join(" or ")} was not found in the loaded document.`,
-      messageId: insertedMessage.id,
-      messageName: insertedMessage.message.messageName,
-    },
-  ];
-}
-
-function groupEditsByMessageId(
-  appliedEdits: readonly FitFieldValueEdit[],
-): Map<string, FitFieldValueEdit[]> {
-  const editsByMessageId = new Map<string, FitFieldValueEdit[]>();
-  for (const edit of appliedEdits) {
-    const current = editsByMessageId.get(edit.messageId) ?? [];
-    current.push(edit);
-    editsByMessageId.set(edit.messageId, current);
-  }
-  return editsByMessageId;
-}
-
-function getAppliedEditFieldIds(
-  messageId: string,
-  fields: readonly FitField[],
-  appliedEdits: readonly FitFieldValueEdit[],
-): ReadonlySet<string> {
-  const fieldIds = new Set<string>();
-  for (const edit of appliedEdits) {
-    if (edit.messageId === messageId && edit.added && edit.fieldId) {
-      fieldIds.add(edit.fieldId);
-    }
-  }
-
-  for (const field of fields) {
-    if (
-      appliedEdits.some((edit) => doesAppliedEditMatchField(messageId, field, edit))
-    ) {
-      fieldIds.add(field.id);
-    }
-  }
-
-  return fieldIds;
-}
-
-function doesAppliedEditMatchField(
-  messageId: string,
-  field: FitField,
-  edit: FitFieldValueEdit,
-): boolean {
-  if (edit.fieldId && edit.fieldId === field.id) {
-    return true;
-  }
-
-  if (edit.messageId !== messageId || edit.fieldNumber !== field.number) {
-    return false;
-  }
-
-  if (Boolean(edit.developer) !== Boolean(field.developer)) {
-    return false;
-  }
-
-  if (field.developer) {
-    return edit.developerDataIndex === field.developerDataIndex;
-  }
-
-  return true;
-}
-
-function draftIssueToFitEditorIssues(
-  message: FitDataRecord,
-  issue: FitDraftIssue,
-): FitEditorIssue[] {
-  return issue.messages.map((description, index) => ({
-    id: `${message.id}-${issue.fieldId}-${index}`,
-    scope: "message" as const,
-    exportBlocking: issue.exportBlocking,
-    messageId: message.id,
-    messageName: message.messageName,
-    timestampLabel: getFitMessageTimestampLabel(message),
-    title: `${issue.fieldName} has invalid data`,
-    description,
-  }));
-}
-
-function fileIssueToFitEditorIssue(
-  issue: FitFileIssue,
-  index: number,
-): FitEditorIssue {
-  return {
-    id: `${issue.code}-${index}`,
-    scope: "file",
-    title: issue.message,
-    description:
-      "FITx can still export this file with freshly calculated checksums.",
-  };
 }
 
 function downloadFitDocument(
