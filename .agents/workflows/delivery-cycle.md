@@ -16,11 +16,11 @@ Move one scoped unit of work from request to verified result while keeping plann
    - review
    - security review
 
-2. If requirements or design are unclear, use architect.
+2. If the request is a bug and root cause is unknown, use debugger before implementation. The orchestrator should capture only the minimal symptom, reproduction clues, and constraints needed for the debugger handoff.
 
-3. If code context is needed, use repo-explorer with a focused question.
+3. If requirements or design are unclear, use architect.
 
-4. If the request is a bug and root cause is unknown, use debugger before implementation.
+4. If code context is needed, use repo-explorer with a focused question.
 
 5. Orchestrator creates or updates a scoped task from the approved plan.
 

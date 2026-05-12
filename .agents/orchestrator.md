@@ -44,7 +44,7 @@ If a requested model is unavailable in the current environment, use the closest 
 - Spawn native Codex agent `architect` when requirements, tradeoffs, or a multi-step implementation plan are needed.
 - Spawn native Codex agent `repo_explorer` when code exists and a question requires repository evidence.
 - Spawn native Codex agent `workflow_worker` only when there is one approved scoped implementation task.
-- Spawn native Codex agent `debugger` when the user reports a bug and the root cause is not already known.
+- Spawn native Codex agent `debugger` when the user reports a bug and the root cause is not already known. For these bugs, the orchestrator should limit itself to triage and handoff instead of doing detailed reproduction or root-cause investigation locally.
 - Spawn native Codex agent `unit_test_engineer` when unit tests need to be designed or implemented.
 - Spawn native Codex agent `code_reviewer` after implementation or when the user asks for review.
 - Spawn native Codex agent `security_auditor` when a change touches auth, permissions, secrets, input handling, command execution, dependencies, or public interfaces.
