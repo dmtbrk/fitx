@@ -2,10 +2,12 @@ import type {
   FitDataRecord,
   FitDocument,
   FitField,
+  FitFieldValueEdit,
   FitInsertedMessage,
   FitScalarValue,
   FitValue
 } from "../fit/types";
+import { buildMessageSnapshotFromAppliedEdits } from "./editSession";
 
 export type FitMessageFilterKind = "all" | "issues" | "edited" | "message-type";
 
@@ -63,6 +65,7 @@ export interface FitViewModelOptions {
   readonly deletedMessageIds?: Iterable<string>;
   readonly insertedMessages?: ReadonlyMap<string, FitInsertedMessage> | Iterable<FitInsertedMessage>;
   readonly editedFieldKeys?: Iterable<string>;
+  readonly appliedEdits?: readonly FitFieldValueEdit[];
 }
 
 export interface FitFieldDisplayValue {
@@ -119,7 +122,13 @@ export function buildFitViewModel(document: FitDocument, options: FitViewModelOp
   });
   const deletedMessageIds = new Set(options.deletedMessageIds ?? []);
   const issueCounts = countIssuesByMessageId(options.issues ?? []);
-  const visibleMessages = buildVisibleMessages(document.messages, deletedMessageIds, options.insertedMessages ?? []);
+  const appliedEditsByMessageId = groupAppliedEditsByMessageId(options.appliedEdits ?? []);
+  const visibleMessages = buildVisibleMessages(
+    document.messages,
+    deletedMessageIds,
+    options.insertedMessages ?? [],
+    appliedEditsByMessageId
+  );
   const messages = buildFitQuickMessages(visibleMessages, {
     editedMessageIds,
     issueCounts
@@ -369,6 +378,7 @@ function buildVisibleMessages(
   documentMessages: readonly FitDataRecord[],
   deletedMessageIds: ReadonlySet<string>,
   insertedMessages: ReadonlyMap<string, FitInsertedMessage> | Iterable<FitInsertedMessage>,
+  appliedEditsByMessageId: ReadonlyMap<string, readonly FitFieldValueEdit[]>,
 ): readonly FitDataRecord[] {
   const messages: FitDataRecord[] = [];
   const insertedMessagesByAfterId = new Map<string, FitInsertedMessage[]>();
@@ -394,7 +404,7 @@ function buildVisibleMessages(
     }
 
     if (!deletedMessageIds.has(message.id)) {
-      messages.push(message);
+      messages.push(projectDocumentMessageWithAppliedEdits(message, appliedEditsByMessageId));
     }
 
     for (const insertedMessage of insertedMessagesByAfterId.get(message.id) ?? []) {
@@ -403,6 +413,30 @@ function buildVisibleMessages(
   }
 
   return messages;
+}
+
+function groupAppliedEditsByMessageId(
+  appliedEdits: readonly FitFieldValueEdit[],
+): ReadonlyMap<string, readonly FitFieldValueEdit[]> {
+  const grouped = new Map<string, FitFieldValueEdit[]>();
+
+  for (const edit of appliedEdits) {
+    const current = grouped.get(edit.messageId) ?? [];
+    current.push(edit);
+    grouped.set(edit.messageId, current);
+  }
+
+  return grouped;
+}
+
+function projectDocumentMessageWithAppliedEdits(
+  message: FitDataRecord,
+  appliedEditsByMessageId: ReadonlyMap<string, readonly FitFieldValueEdit[]>,
+): FitDataRecord {
+  const appliedEdits = appliedEditsByMessageId.get(message.id);
+  return appliedEdits
+    ? buildMessageSnapshotFromAppliedEdits(message, appliedEdits)
+    : message;
 }
 
 function getInsertedMessageAfterMessageId(insertedMessage: FitInsertedMessage): string | null {

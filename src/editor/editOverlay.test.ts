@@ -210,6 +210,37 @@ describe("fit editor overlay", () => {
     expect(countEditOverlayEdits(deleted)).toBe(1);
   });
 
+  it("replaces inserted message snapshots when later edits are applied", () => {
+    const insertedMessage = makeMessage("raw-message-1", [
+      makeField("field-a", 1, 10),
+    ]);
+    const overlay = insertInsertedMessage(createEmptyEditOverlayForTest(), {
+      id: insertedMessage.id,
+      origin: "raw",
+      position: {
+        afterMessageId: null,
+        beforeMessageId: null,
+      },
+      message: insertedMessage,
+    });
+
+    const next = replaceMessageEdits(overlay, insertedMessage.id, [
+      {
+        messageId: insertedMessage.id,
+        fieldId: "field-a",
+        fieldNumber: 1,
+        value: 11,
+      },
+    ]);
+
+    expect(next.messages.has(insertedMessage.id)).toBe(false);
+    expect(next.insertedMessages.get(insertedMessage.id)?.message.fields[0]?.value).toBe(11);
+    expect(next.insertedMessages.get(insertedMessage.id)?.message.fields[0]?.rawValue).toBe(11);
+    expect(getEditsForMessage(next, insertedMessage.id)).toEqual([]);
+    expect(collectEditedMessageIdsFromOverlay(next)).toEqual(new Set([insertedMessage.id]));
+    expect(countEditOverlayEdits(next)).toBe(1);
+  });
+
   it("can insert a staged message before another staged message", () => {
     const withFirstInsert = insertInsertedMessage(createEmptyEditOverlayForTest(), {
       id: "raw-message-1",
@@ -365,5 +396,31 @@ function makeMessage(id: string, fields: readonly FitField[] = []): FitDataRecor
     definitionId: "definition-1",
     fields: [...fields],
     span: { start: 0, end: 0 },
+  };
+}
+
+function makeField(id: string, number: number, value: number): FitField {
+  return {
+    id,
+    number,
+    name: id,
+    baseType: 0x02,
+    baseTypeName: "uint8",
+    size: 1,
+    value,
+    rawValue: value,
+    known: true,
+    profile: {
+      known: true,
+      number: 20,
+      name: "record",
+      baseType: "record",
+      size: 0,
+      values: [],
+      messageNumber: 20,
+      messageName: "record",
+    },
+    span: { start: 0, end: 0 },
+    developer: false,
   };
 }

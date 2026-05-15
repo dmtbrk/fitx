@@ -28,6 +28,7 @@ test("message editor stages cancel and apply behavior", async ({ page }) => {
 
   await expect(page.getByText("1 edit")).toBeVisible();
   await expect(page.getByRole("button", { name: /^Edited1$/ })).toBeVisible();
+  await expect(page.locator('[data-testid="message-card"][data-edited="true"]').first()).toContainText("127");
 
   await page.getByRole("button", { name: /^Edited1$/ }).click();
   await expect(page.getByTestId("message-card").first()).toHaveAttribute("data-edited", "true");
@@ -102,7 +103,16 @@ test("duplicate message opens the editor, cancels without committing, and export
   await duplicatedEditButton.click();
   await expect(duplicateDialog).toBeVisible();
   await expect(duplicateDialog.getByText("Add raw field")).toHaveCount(0);
-  await page.getByRole("button", { name: "Cancel" }).click();
+  const duplicateEditorInput = page.getByTestId("message-editor-input").first();
+  const currentDuplicateValue = await duplicateEditorInput.inputValue();
+  const nextDuplicateValue = String(Number(currentDuplicateValue) + 1);
+  await duplicateEditorInput.fill(nextDuplicateValue);
+  await page.getByRole("button", { name: "Apply" }).click();
+  await expect(duplicatedCards.nth(1)).toContainText(nextDuplicateValue);
+  await duplicatedEditButton.click();
+  await expect(duplicateDialog).toBeVisible();
+  await expect(duplicateEditorInput).toHaveValue(nextDuplicateValue);
+  await page.getByRole("button", { name: "Apply" }).click();
 
   const downloadPromise = page.waitForEvent("download");
   await page.getByRole("button", { name: "Download" }).click();
@@ -118,12 +128,97 @@ test("duplicate message opens the editor, cancels without committing, and export
     ),
   );
 
+  expect(exportedDocument.messages[1]?.messageName).toBe(sourceMessageName);
+  expect(exportedDocument.messages[1]?.fields[0]?.value).toBe(Number(nextDuplicateValue));
+
+  await duplicatedEditButton.click();
+  await expect(duplicateDialog).toBeVisible();
+  await expect(duplicateEditorInput).toHaveValue(nextDuplicateValue);
+  await duplicateEditorInput.fill("300");
+  await page.getByRole("button", { name: "Apply" }).click();
+
+  await expect(page.getByText("1 issue")).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Issues1$/ })).toBeVisible();
+
+  await page.getByRole("button", { name: "Download" }).click();
+  const issuesDialog = page.getByRole("dialog", { name: "Issues" });
+  await expect(issuesDialog).toBeVisible();
+  await expect(issuesDialog.locator("article")).toHaveCount(1);
+  await expect(page.getByRole("button", { name: "Download anyway" })).toHaveCount(0);
+
   expect(exportedDocument.messages).toHaveLength(originalDocument.messages.length + 1);
   expect(exportedDocument.messages[0]?.messageName).toBe(sourceMessageName);
   expect(exportedDocument.messages[1]?.messageName).toBe(sourceMessageName);
   expect(
     exportedDocument.messages.slice(2).map((message) => message.messageName),
   ).toEqual(originalDocument.messages.slice(1).map((message) => message.messageName));
+});
+
+test("raw inserted message reopens without duplicating existing added fields", async ({ page }) => {
+  const fixturePath = path.join(process.cwd(), "tests/fixtures/Activity.fit");
+  const originalFile = await readFile(fixturePath);
+  const originalDocument = parseFitDocument(
+    originalFile.buffer.slice(
+      originalFile.byteOffset,
+      originalFile.byteOffset + originalFile.byteLength,
+    ),
+  );
+
+  await page.goto("/");
+  await page.locator('input[type="file"]').setInputFiles(fixturePath);
+
+  await expect(page.getByText("Activity.fit")).toBeVisible();
+  const insertTargetName = `Insert message between ${originalDocument.messages[0].messageName} and ${originalDocument.messages[1].messageName}`;
+  await page.getByRole("button", { name: "Add message" }).click();
+  await page.getByRole("button", { name: insertTargetName }).click();
+
+  const insertDialog = page.getByRole("dialog", { name: new RegExp(insertTargetName) });
+  await expect(insertDialog).toBeVisible();
+  await page.getByLabel("Message number").fill("901");
+  await page.getByLabel("Message label").fill("raw_label");
+  await page.getByLabel("Field 1 number").fill("7");
+  await page.getByLabel("Field 1 name").fill("raw_value");
+  await page.getByLabel("Field 1 base type").selectOption("uint8");
+  await page.getByLabel("Field 1 size").fill("1");
+  await page.getByLabel("Field 1 values").fill("42");
+  await page.getByRole("button", { name: "Add message" }).click();
+
+  await expect(page.getByText("1 edit")).toBeVisible();
+  const rawCard = page.getByTestId("message-card").filter({ hasText: "raw_label" }).first();
+  await expect(rawCard).toContainText("42");
+
+  const rawEditButton = rawCard.getByRole("button", { name: "Edit raw_label" });
+  await rawEditButton.click();
+  const rawDialog = page.getByRole("dialog", { name: /raw_label/ });
+  await expect(rawDialog).toBeVisible();
+  const rawValueInput = page.getByLabel("raw_value value 1");
+  await expect(rawValueInput).toHaveValue("42");
+  await rawValueInput.fill("43");
+  await page.getByRole("button", { name: "Apply" }).click();
+
+  await expect(rawCard).toContainText("43");
+  await rawEditButton.click();
+  await expect(rawDialog).toBeVisible();
+  await expect(rawValueInput).toHaveValue("43");
+  await page.getByRole("button", { name: "Apply" }).click();
+
+  const downloadPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Download" }).click();
+  const download = await downloadPromise;
+  const downloadedPath = await download.path();
+  expect(downloadedPath).not.toBeNull();
+
+  const exportedFile = await readFile(downloadedPath!);
+  const exportedDocument = parseFitDocument(
+    exportedFile.buffer.slice(
+      exportedFile.byteOffset,
+      exportedFile.byteOffset + exportedFile.byteLength,
+    ),
+  );
+
+  const rawMessage = exportedDocument.messages.find((message) => message.globalMessageNumber === 901);
+  expect(rawMessage?.fields.map((field) => field.number)).toEqual([7]);
+  expect(rawMessage?.fields[0]?.value).toBe(43);
 });
 
 test("raw add message cancels without committing and then inserts between messages", async ({ page }) => {

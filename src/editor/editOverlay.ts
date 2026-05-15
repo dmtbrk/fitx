@@ -1,4 +1,5 @@
 import type { FitFieldValueEdit, FitInsertedMessage } from "../fit";
+import { buildMessageSnapshotFromAppliedEdits } from "./editSession";
 
 export interface FitEditOverlay {
   readonly messages: ReadonlyMap<string, FitEditOverlayMessage>;
@@ -77,6 +78,24 @@ export function replaceMessageEdits(
   const messages = new Map(overlay.messages);
   const deletedMessageIds = new Set(overlay.deletedMessageIds);
   const insertedMessages = new Map(overlay.insertedMessages);
+  const existingInsertedMessage = insertedMessages.get(messageId);
+
+  if (existingInsertedMessage) {
+    deletedMessageIds.delete(messageId);
+    messages.delete(messageId);
+    insertedMessages.set(messageId, {
+      ...existingInsertedMessage,
+      message:
+        nextEdits.length > 0
+          ? buildMessageSnapshotFromAppliedEdits(
+              existingInsertedMessage.message,
+              nextEdits,
+            )
+          : existingInsertedMessage.message,
+    });
+    return { messages, deletedMessageIds, insertedMessages };
+  }
+
   if (nextEdits.length === 0) {
     messages.delete(messageId);
     return { messages, deletedMessageIds, insertedMessages };

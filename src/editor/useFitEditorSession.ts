@@ -167,6 +167,7 @@ export function useFitEditorSession(): FitEditorSession {
       loaded
         ? buildFitViewModel(loaded.document, {
             issues,
+            appliedEdits: overlayAppliedEdits,
             editedMessageIds,
             deletedMessageIds,
             insertedMessages: collectInsertedMessages(editOverlay),

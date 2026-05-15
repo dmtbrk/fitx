@@ -220,6 +220,7 @@ Near-term architecture priorities:
 
 1. Create a public `src/fit/index.ts` and stabilize the FIT domain API.
 2. Keep the canonical `src/editor/editOverlay.ts` transaction model as the single live edit surface for field edits, added fields, added developer fields, added messages, duplicate, and delete.
+   Loaded-document messages remain immutable source plus overlay deltas; inserted messages own their canonical current overlay snapshot after creation.
 3. Centralize typed validation issues with `scope`, `code`, `severity`, target IDs, and export-blocking classification.
 4. Extract editor session state, selectors, and file/download side effects out of `App.tsx` into `editor`, leaving `app` as composition.
 5. Keep the editor session cohesive inside `editor` while moving reusable presentational pieces into `components`.

@@ -212,6 +212,45 @@ describe("fit editor validation", () => {
     );
   });
 
+  it("validates inserted message snapshots after later edits", () => {
+    const insertedMessage: FitInsertedMessage = {
+      id: "duplicate-1",
+      origin: "duplicate",
+      position: {
+        afterMessageId: "message-1",
+        beforeMessageId: null,
+      },
+      sourceMessageId: "message-1",
+      message: makeMessage("duplicate-message", "record", [
+        makeDataField({
+          id: "field-uint8",
+          number: 2,
+          name: "uint8_field",
+          baseTypeName: "uint8",
+          baseType: 0x02,
+          size: 1,
+          value: 300,
+          rawValue: 300,
+        }),
+      ]),
+    };
+
+    const result = validateFitEditorDocument(
+      makeDocument([]),
+      insertInsertedMessage(createEmptyEditOverlay(), insertedMessage),
+    );
+
+    expect(result.hasExportBlockingIssues).toBe(true);
+    expect(result.issues).toContainEqual(
+      expect.objectContaining({
+        messageId: insertedMessage.message.id,
+        title: "uint8_field has invalid data",
+        exportBlocking: true,
+        description: "uint8_field must be between 0 and 255.",
+      }),
+    );
+  });
+
   it("blocks edits that would exceed FIT normal-field definition limits", () => {
     const message = makeMessage(
       "message-1",

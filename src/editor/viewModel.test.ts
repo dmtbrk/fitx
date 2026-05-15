@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { parseFitDocument } from "../fit/parser";
+import type { FitDataRecord } from "../fit";
 import {
   buildFitFilterOptions,
   buildFitViewModel,
   countEditedMessages,
   countIssueMessages,
   filterFitMessages,
-  formatFitFieldDisplayValue
+  formatFitFieldDisplayValue,
+  formatFitValue
 } from "./viewModel";
 import type { FitFilterOption, FitIssueLike } from "./viewModel";
 
@@ -56,6 +58,59 @@ describe("fit view model", () => {
       expect.objectContaining({ count: 1 }),
     );
     expect(view.counts.edited).toBe(1);
+  });
+
+  it("projects applied field edits into quick-view message values", () => {
+    const document = parseFitDocument(makeRepresentativeFitFile());
+    const sourceMessage = document.messages[1];
+    const sourceField = sourceMessage.fields.find(
+      (field) =>
+        !field.developer &&
+        field.name !== "timestamp" &&
+        field.name !== "time_created" &&
+        field.name !== "start_time" &&
+        (typeof field.value === "number" || typeof field.value === "bigint"),
+    );
+
+    expect(sourceField).toBeDefined();
+    if (!sourceField) {
+      throw new Error("Expected a numeric source field.");
+    }
+
+    const sourceFieldValue = sourceField.value;
+    const editedValue =
+      typeof sourceFieldValue === "bigint"
+        ? sourceFieldValue + 1n
+        : typeof sourceFieldValue === "number"
+          ? sourceFieldValue + 1
+          : (() => {
+              throw new Error("Expected a numeric source field value.");
+            })();
+
+    const view = buildFitViewModel(document, {
+      appliedEdits: [
+        {
+          messageId: sourceMessage.id,
+          fieldId: sourceField!.id,
+          fieldNumber: sourceField!.number,
+          value: editedValue,
+        },
+      ],
+      editedMessageIds: [sourceMessage.id],
+    });
+
+    const projectedMessage = view.messages.find(
+      (message) => message.id === sourceMessage.id,
+    );
+
+    expect(projectedMessage).toBeDefined();
+    expect(projectedMessage?.isEdited).toBe(true);
+    expect(
+      projectedMessage?.fields.find((field) => field.id === sourceField!.id)?.valueText,
+    ).toBe(formatFitValue(editedValue));
+    expect(projectedMessage?.timestampLabel).toBe(
+      "2024-01-01T00:00:30.000Z",
+    );
   });
 
   it("inserts duplicated messages immediately after their source", () => {
@@ -153,6 +208,60 @@ describe("fit view model", () => {
     ]);
     expect(view.counts.messages).toBe(7);
     expect(view.counts.edited).toBe(3);
+  });
+
+  it("surfaces canonical inserted message snapshots regardless of insertion point", () => {
+    const document = parseFitDocument(makeRepresentativeFitFile());
+    const insertedBeforeFirst = makeEditedSnapshot(document.messages[0], "raw-before-first");
+    const insertedBetween = makeEditedSnapshot(document.messages[1], "raw-between");
+    const insertedAfterLast = makeEditedSnapshot(document.messages[3], "raw-after-last");
+
+    const beforeField = findFirstNumericField(insertedBeforeFirst);
+    const betweenField = findFirstNumericField(insertedBetween);
+    const afterField = findFirstNumericField(insertedAfterLast);
+
+    const view = buildFitViewModel(document, {
+      insertedMessages: [
+        {
+          id: insertedBeforeFirst.id,
+          origin: "raw",
+          position: {
+            afterMessageId: null,
+            beforeMessageId: document.messages[0].id
+          },
+          message: insertedBeforeFirst
+        },
+        {
+          id: insertedBetween.id,
+          origin: "raw",
+          position: {
+            afterMessageId: document.messages[1].id,
+            beforeMessageId: document.messages[2].id
+          },
+          message: insertedBetween
+        },
+        {
+          id: insertedAfterLast.id,
+          origin: "raw",
+          position: {
+            afterMessageId: document.messages[3].id,
+            beforeMessageId: null
+          },
+          message: insertedAfterLast
+        }
+      ],
+      editedMessageIds: [insertedBeforeFirst.id, insertedBetween.id, insertedAfterLast.id]
+    });
+
+    expect(
+      view.messages.find((message) => message.id === insertedBeforeFirst.id)?.fields.find((field) => field.id === beforeField.id)?.valueText,
+    ).toBe(formatFitValue(beforeField.value));
+    expect(
+      view.messages.find((message) => message.id === insertedBetween.id)?.fields.find((field) => field.id === betweenField.id)?.valueText,
+    ).toBe(formatFitValue(betweenField.value));
+    expect(
+      view.messages.find((message) => message.id === insertedAfterLast.id)?.fields.find((field) => field.id === afterField.id)?.valueText,
+    ).toBe(formatFitValue(afterField.value));
   });
 
   it("extracts timestamp labels from timestamp-like fields in UTC text", () => {
@@ -265,6 +374,56 @@ function makeRepresentativeFitFile(): ArrayBuffer {
 
 function messageTypeLabels(options: readonly FitFilterOption[]): string[] {
   return options.flatMap((option) => option.kind === "message-type" ? [option.messageName] : []);
+}
+
+function findFirstNumericField(message: FitDataRecord): FitDataRecord["fields"][number] & {
+  readonly value: number | bigint;
+} {
+  const field = message.fields.find(
+    (candidate) =>
+      !Array.isArray(candidate.value) &&
+      candidate.value !== null &&
+      (typeof candidate.value === "number" || typeof candidate.value === "bigint"),
+  );
+
+  if (!field) {
+    throw new Error("Expected a numeric field.");
+  }
+
+  return field as FitDataRecord["fields"][number] & {
+    readonly value: number | bigint;
+  };
+}
+
+function makeEditedSnapshot(message: FitDataRecord, id: string): FitDataRecord {
+  const numericField = findFirstNumericField(message);
+  const nextValue = incrementNumericValue(numericField.value);
+
+  return {
+    ...message,
+    id,
+    fields: message.fields.map((field) =>
+      field.id === numericField.id
+        ? {
+            ...field,
+            value: nextValue,
+            rawValue: nextValue,
+          }
+        : field,
+    ),
+  };
+}
+
+function incrementNumericValue(value: number | bigint) {
+  if (typeof value === "bigint") {
+    return value + 1n;
+  }
+
+  if (typeof value === "number") {
+    return value + 1;
+  }
+
+  throw new Error("Expected a numeric field value.");
 }
 
 function fitTimestamp(value: number): number {

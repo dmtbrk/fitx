@@ -167,6 +167,60 @@ describe("fit edit session", () => {
     });
   });
 
+  it("updates existing added fields in a raw inserted snapshot without duplicating field numbers", () => {
+    const inserted = createRawInsertedMessage("raw-message-1", {
+      globalMessageNumber: 901,
+      messageName: "raw_label",
+      fields: [
+        {
+          fieldNumber: 7,
+          fieldName: "raw_value",
+          baseTypeName: "uint8",
+          baseType: 0x02,
+          size: 1,
+          textValues: ["42"]
+        }
+      ]
+    });
+    const existingField = inserted.fields[0];
+
+    expect(existingField).toBeDefined();
+    expect(existingField?.added).toBe(true);
+
+    const snapshot = buildMessageSnapshotFromAppliedEdits(inserted, [
+      {
+        messageId: inserted.id,
+        fieldId: existingField!.id,
+        fieldNumber: existingField!.number,
+        fieldName: "raw_value",
+        baseType: 0x02,
+        baseTypeName: "uint8",
+        size: 1,
+        added: true,
+        value: 43
+      },
+      {
+        messageId: inserted.id,
+        fieldNumber: 8,
+        fieldName: "raw_extra",
+        baseType: 0x02,
+        baseTypeName: "uint8",
+        size: 1,
+        added: true,
+        value: 7
+      }
+    ]);
+
+    expect(snapshot.fields.map((field) => field.number)).toEqual([7, 8]);
+    expect(snapshot.fields.filter((field) => field.number === 7)).toHaveLength(1);
+    expect(snapshot.fields[0]).toMatchObject({
+      id: existingField!.id,
+      added: true,
+      value: 43,
+      rawValue: 43
+    });
+  });
+
   it("preserves developer identity and numeric array values when editing arrays", () => {
     const message = makeMessage([
       makeDataField({

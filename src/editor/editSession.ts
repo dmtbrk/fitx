@@ -111,7 +111,13 @@ export function createMessageEditDraft(
 ): FitMessageEditDraft {
   const fieldsById: Record<string, FitFieldEditDraft> = {};
   const fieldOrder: string[] = [];
-  const addedFieldEdits = appliedEdits.filter((edit) => edit.messageId === message.id && edit.added);
+  const existingFieldIds = new Set(message.fields.map((field) => field.id));
+  const addedFieldEdits = appliedEdits.filter(
+    (edit) =>
+      edit.messageId === message.id &&
+      edit.added &&
+      (!edit.fieldId || !existingFieldIds.has(edit.fieldId)),
+  );
 
   for (const field of message.fields) {
     const seededValue = getSeededFieldValue(message.id, field, appliedEdits);
