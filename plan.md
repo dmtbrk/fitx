@@ -79,7 +79,7 @@ Completed validation/export hardening slice:
 
 Known Phase 1 limits:
 
-- `scripts/generate-fit-profile.mjs` is intentionally still a scaffold; the committed generated profile artifact is small representative metadata for tests and early UI work, not the full Garmin profile.
+- `scripts/generate-fit-profile.mjs` now has a fixture-driven canonical JSON input path; the committed generated profile artifact is still a small representative sample for tests and early UI work, not the full Garmin profile.
 - Known/developer added-field flows, broader definition rewriting for assisted known-profile creation, and full transaction validation remain in later phases.
 - Additional FIT fixtures are still needed for big-endian records, compressed timestamp records, full developer metadata flows, 64-bit edits, duplicate/malformed definitions, and large-file performance.
 - The message edit icon opens the focused raw field editor. Raw normal add-field, delete, duplicate, and raw add-message are wired through the canonical edit overlay.
@@ -375,14 +375,14 @@ Near-term architecture priorities:
 
 ## FIT Profile Generation
 
-- Source: Garmin FIT SDK `Profile.xlsx`, which Garmin identifies as the most up-to-date FIT profile reference.
-- Approach: create a dev-only generator script that reads the workbook and emits a normalized, sorted, typed profile artifact for app use.
+- Source: canonical JSON profile input now, with Garmin FIT SDK `Profile.xlsx` parsing left as a later optional extension.
+- Approach: create a dev-only generator script that reads canonical JSON and emits a normalized, sorted, typed profile artifact for app use.
 - Runtime: the browser imports the generated artifact only; it never parses Excel.
 - Default repository policy: commit generated profile artifacts plus SDK version/checksum metadata, not `Profile.xlsx` itself.
-- If generated Garmin-derived metadata cannot be committed after license review, keep the generator and require a local/user-provided `Profile.xlsx` to regenerate full metadata.
+- If generated Garmin-derived metadata cannot be committed after license review, keep the generator and require a local/user-provided `Profile.xlsx` later to regenerate full metadata.
 - Update workflow:
-  1. Download/update Garmin FIT SDK profile.
-  2. Run the profile generator with the path to `Profile.xlsx`.
+  1. Update the canonical JSON fixture or source profile input.
+  2. Run the profile generator with the path to the JSON input.
   3. Review the generated diff.
   4. Run parser/profile/writer tests.
   5. Commit the generated artifact and source metadata.

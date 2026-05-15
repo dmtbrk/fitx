@@ -1,0 +1,99 @@
+{
+  "source": {
+    "generatorVersion": "canonical-json-fixture",
+    "workbookPath": "fixtures/fit-profile.canonical.json",
+    "workbookSha256": "fixture-sha256",
+    "sdkRelease": "fixture-sdk"
+  },
+  "types": [
+    {
+      "name": "uint8",
+      "baseType": "uint8",
+      "size": 1,
+      "signed": false,
+      "values": []
+    },
+    {
+      "name": "sport",
+      "baseType": "enum",
+      "size": 1,
+      "signed": false,
+      "values": [
+        {
+          "value": 0,
+          "name": "generic",
+          "comment": "Default sport"
+        },
+        {
+          "value": 1,
+          "name": "running"
+        }
+      ]
+    }
+  ],
+  "messages": [
+    {
+      "number": 20,
+      "name": "record",
+      "comment": "Time series sample message.",
+      "fields": [
+        {
+          "number": 3,
+          "name": "heart_rate",
+          "baseType": "uint8",
+          "size": 1,
+          "type": "uint8",
+          "scale": 1,
+          "offset": 0,
+          "units": "bpm",
+          "values": [],
+          "components": [
+            {
+              "fieldNumber": 1,
+              "scale": 10,
+              "offset": 2,
+              "units": "bpm"
+            }
+          ],
+          "comment": "Heart rate sample."
+        },
+        {
+          "number": 5,
+          "name": "distance",
+          "baseType": "uint32",
+          "size": 4,
+          "type": "uint32",
+          "units": "m",
+          "values": [],
+          "comment": "Distance in meters."
+        }
+      ]
+    },
+    {
+      "number": 0,
+      "name": "file_id",
+      "comment": "Identifies the file header and core file metadata.",
+      "fields": [
+        {
+          "number": 0,
+          "name": "type",
+          "baseType": "enum",
+          "size": 1,
+          "type": "sport",
+          "values": [
+            {
+              "value": 0,
+              "name": "activity"
+            },
+            {
+              "value": 1,
+              "name": "workout",
+              "comment": "Planned workout file."
+            }
+          ],
+          "comment": "FIT file purpose."
+        }
+      ]
+    }
+  ]
+}
