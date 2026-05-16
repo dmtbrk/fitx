@@ -220,7 +220,13 @@ export const messageToolbarActions = style({
 });
 
 export const messageToolbarDisclosure = style({
+  gap: tokens.space.x6,
   selectors: {
+    "&[aria-expanded=\"true\"]": {
+      borderColor: tokens.color.brand,
+      background: tokens.color.brand,
+      color: tokens.color.textOnAccent
+    },
     "&[data-active=\"true\"]": {
       borderColor: tokens.color.brand,
       background: tokens.color.surfaceAccent,
@@ -233,6 +239,10 @@ export const messageToolbarDisclosureActive = style({
   borderColor: tokens.color.brand,
   background: tokens.color.surfaceAccent,
   color: tokens.color.brand
+});
+
+export const messageToolbarDisclosureIcon = style({
+  flexShrink: 0
 });
 
 export const messageToolbarSummary = style({

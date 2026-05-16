@@ -1,5 +1,5 @@
 import { useLayoutEffect, useId, useRef, useState } from "react";
-import { ChevronDown, ChevronUp, Plus, X } from "lucide-react";
+import { Filter, Plus, X } from "lucide-react";
 import type { FitFilterOption, FitMessageFilter } from "../editor";
 import { FilterBar } from "./FilterBar";
 import {
@@ -7,6 +7,7 @@ import {
   messageToolbarActions,
   messageToolbarDisclosure,
   messageToolbarDisclosureActive,
+  messageToolbarDisclosureIcon,
   messageToolbarFilters,
   messageToolbarRow,
   messageToolbarSummary,
@@ -89,12 +90,8 @@ export function MessageToolbar({
               data-active={!filtersOpen && activeFilter !== "all" ? "true" : undefined}
               onClick={() => setFiltersOpen((current) => !current)}
             >
+              <Filter className={messageToolbarDisclosureIcon} size={16} aria-hidden="true" />
               <span>Filters</span>
-              {filtersOpen ? (
-                <ChevronUp size={16} aria-hidden="true" />
-              ) : (
-                <ChevronDown size={16} aria-hidden="true" />
-              )}
             </button>
           </div>
         </div>
