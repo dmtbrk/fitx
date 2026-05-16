@@ -1,4 +1,5 @@
 import { globalKeyframes, style } from "@vanilla-extract/css";
+import { tokens } from "./tokens.css";
 
 globalKeyframes("fitx-spin", {
   to: { transform: "rotate(360deg)" }
@@ -6,28 +7,28 @@ globalKeyframes("fitx-spin", {
 
 export const app = style({
   minHeight: "100vh",
-  background: "#fffbfe",
-  color: "#1d1b20"
+  background: tokens.color.canvas,
+  color: tokens.color.textPrimary
 });
 
 export const topbar = style({
   display: "flex",
   alignItems: "center",
-  gap: 16,
+  gap: tokens.space.x16,
   width: "100%",
   maxWidth: 1152,
   margin: "0 auto",
-  padding: "20px 16px",
+  padding: `${tokens.space.x20} ${tokens.space.x16}`,
   "@media": {
-    "(min-width: 640px)": { padding: "20px 24px" },
-    "(min-width: 1024px)": { padding: "20px 32px" }
+    "(min-width: 640px)": { padding: `${tokens.space.x20} ${tokens.space.x24}` },
+    "(min-width: 1024px)": { padding: `${tokens.space.x20} ${tokens.space.x32}` }
   }
 });
 
 export const brandGroup = style({
   display: "flex",
   alignItems: "center",
-  gap: 12,
+  gap: tokens.space.x12,
   minWidth: 0,
   flex: 1
 });
@@ -39,15 +40,15 @@ export const appIcon = style({
   width: 40,
   height: 40,
   flexShrink: 0,
-  borderRadius: 16,
-  background: "#eaddff",
-  color: "#4f378b"
+  borderRadius: tokens.radius.lg,
+  background: tokens.color.surfaceAccent,
+  color: tokens.color.textAccent
 });
 
 export const title = style({
   margin: 0,
   flexShrink: 0,
-  color: "#1d1b20",
+  color: tokens.color.textPrimary,
   fontSize: 24,
   fontWeight: 650,
   lineHeight: 1.1
@@ -58,7 +59,7 @@ export const divider = style({
   width: 1,
   height: 24,
   flexShrink: 0,
-  background: "#cac4d0",
+  background: tokens.color.borderDefault,
   "@media": { "(min-width: 640px)": { display: "block" } }
 });
 
@@ -67,7 +68,7 @@ export const headerText = style({
   overflow: "hidden",
   textOverflow: "ellipsis",
   whiteSpace: "nowrap",
-  color: "#1d1b20",
+  color: tokens.color.textPrimary,
   fontSize: 15,
   fontWeight: 600
 });
@@ -75,7 +76,7 @@ export const headerText = style({
 export const mutedHeaderText = style({
   display: "none",
   flexShrink: 0,
-  color: "#49454f",
+  color: tokens.color.textSecondary,
   fontSize: 14,
   "@media": { "(min-width: 640px)": { display: "inline" } }
 });
@@ -83,7 +84,7 @@ export const mutedHeaderText = style({
 export const headerActions = style({
   display: "flex",
   alignItems: "center",
-  gap: 8,
+  gap: tokens.space.x8,
   flexShrink: 0
 });
 
@@ -91,42 +92,42 @@ export const button = style({
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
-  gap: 8,
+  gap: tokens.space.x8,
   minHeight: 42,
-  borderRadius: 999,
+  borderRadius: tokens.radius.pill,
   border: "1px solid transparent",
-  padding: "9px 16px",
+  padding: `${tokens.space.x9} ${tokens.space.x16}`,
   fontSize: 14,
   fontWeight: 650,
-  transition: "background 140ms ease, border-color 140ms ease, color 140ms ease, box-shadow 140ms ease"
+  transition: `background ${tokens.motion.fast}, border-color ${tokens.motion.fast}, color ${tokens.motion.fast}, box-shadow ${tokens.motion.fast}`
 });
 
 export const primaryButton = style([
   button,
   {
-    background: "#6750a4",
-    color: "#fff",
-    boxShadow: "0 1px 2px rgba(29, 27, 32, 0.12)",
-    selectors: { "&:hover": { background: "#5b4698" } }
+    background: tokens.color.brand,
+    color: tokens.color.textOnAccent,
+    boxShadow: tokens.color.shadowButton,
+    selectors: { "&:hover": { background: tokens.color.brandHover } }
   }
 ]);
 
 export const secondaryButton = style([
   button,
   {
-    borderColor: "#79747e",
+    borderColor: tokens.color.textTertiary,
     background: "transparent",
-    color: "#6750a4",
-    selectors: { "&:hover": { background: "#f3edf7" } }
+    color: tokens.color.brand,
+    selectors: { "&:hover": { background: tokens.color.surfaceAccentHover } }
   }
 ]);
 
 export const dangerButton = style([
   button,
   {
-    background: "#ba1a1a",
-    color: "#fff",
-    selectors: { "&:hover": { background: "#9f1515" } }
+    background: tokens.color.danger,
+    color: tokens.color.textOnAccent,
+    selectors: { "&:hover": { background: tokens.color.dangerHover } }
   }
 ]);
 
@@ -137,11 +138,11 @@ export const iconOnlyButton = style({
   width: 40,
   height: 40,
   border: "1px solid transparent",
-  borderRadius: 999,
+  borderRadius: tokens.radius.pill,
   background: "transparent",
-  color: "#6750a4",
-  transition: "background 140ms ease",
-  selectors: { "&:hover": { background: "#f3edf7" } }
+  color: tokens.color.brand,
+  transition: `background ${tokens.motion.fast}`,
+  selectors: { "&:hover": { background: tokens.color.surfaceAccentHover } }
 });
 
 export const hiddenFileInput = style({
@@ -157,8 +158,8 @@ export const hiddenFileInput = style({
 export const pill = style({
   display: "none",
   border: 0,
-  borderRadius: 999,
-  padding: "6px 12px",
+  borderRadius: tokens.radius.pill,
+  padding: `${tokens.space.x6} ${tokens.space.x12}`,
   fontSize: 12,
   fontWeight: 700,
   "@media": { "(min-width: 640px)": { display: "inline-flex" } }
@@ -167,17 +168,17 @@ export const pill = style({
 export const issuePill = style([
   pill,
   {
-    background: "#ffdad6",
-    color: "#ba1a1a",
-    selectors: { "&:hover": { background: "#f9c7c1" } }
+    background: tokens.color.surfaceDangerStrong,
+    color: tokens.color.textDanger,
+    selectors: { "&:hover": { background: tokens.color.surfaceDangerHover } }
   }
 ]);
 
 export const editPill = style([
   pill,
   {
-    background: "#eaddff",
-    color: "#4f378b"
+    background: tokens.color.surfaceAccent,
+    color: tokens.color.textAccent
   }
 ]);
 
@@ -185,55 +186,55 @@ export const filterWrap = style({
   width: "100%",
   maxWidth: 1152,
   margin: "0 auto",
-  padding: "0 16px 12px",
+  padding: `0 ${tokens.space.x16} ${tokens.space.x12}`,
   "@media": {
-    "(min-width: 640px)": { padding: "0 24px 12px" },
-    "(min-width: 1024px)": { padding: "0 32px 12px" }
+    "(min-width: 640px)": { padding: `0 ${tokens.space.x24} ${tokens.space.x12}` },
+    "(min-width: 1024px)": { padding: `0 ${tokens.space.x32} ${tokens.space.x12}` }
   }
 });
 
 export const filterBar = style({
   display: "flex",
   flexWrap: "wrap",
-  gap: 8,
-  borderRadius: 24,
-  background: "#f7f2fa",
-  padding: 8
+  gap: tokens.space.x8,
+  borderRadius: tokens.radius.xxl,
+  background: tokens.color.surfaceMuted,
+  padding: tokens.space.x8
 });
 
 export const filterButton = style({
   flexShrink: 0,
   minHeight: 36,
   border: 0,
-  borderRadius: 999,
-  padding: "7px 12px",
-  background: "#fffbfe",
-  color: "#49454f",
+  borderRadius: tokens.radius.pill,
+  padding: `${tokens.space.x7} ${tokens.space.x12}`,
+  background: tokens.color.surface,
+  color: tokens.color.textSecondary,
   fontSize: 14,
   fontWeight: 650,
-  transition: "background 140ms ease, color 140ms ease",
-  selectors: { "&:hover": { background: "#eaddff" } }
+  transition: `background ${tokens.motion.fast}, color ${tokens.motion.fast}`,
+  selectors: { "&:hover": { background: tokens.color.surfaceAccent } }
 });
 
 export const activeFilterButton = style({
-  background: "#6750a4",
-  color: "#fff",
-  selectors: { "&:hover": { background: "#6750a4" } }
+  background: tokens.color.brand,
+  color: tokens.color.textOnAccent,
+  selectors: { "&:hover": { background: tokens.color.brand } }
 });
 
 export const issueFilterButton = style({
-  background: "#ffdad6",
-  color: "#ba1a1a"
+  background: tokens.color.surfaceDangerStrong,
+  color: tokens.color.textDanger
 });
 
 export const activeIssueFilterButton = style({
-  background: "#ba1a1a",
-  color: "#fff",
-  selectors: { "&:hover": { background: "#ba1a1a" } }
+  background: tokens.color.danger,
+  color: tokens.color.textOnAccent,
+  selectors: { "&:hover": { background: tokens.color.danger } }
 });
 
 export const filterCount = style({
-  marginLeft: 6,
+  marginLeft: tokens.space.x6,
   minWidth: 12,
   color: "currentColor",
   opacity: 0.72,
@@ -244,19 +245,19 @@ export const content = style({
   width: "100%",
   maxWidth: 1152,
   margin: "0 auto",
-  padding: "0 16px 56px",
+  padding: `0 ${tokens.space.x16} ${tokens.space.x56}`,
   "@media": {
-    "(min-width: 640px)": { padding: "0 24px 56px" },
-    "(min-width: 1024px)": { padding: "0 32px 56px" }
+    "(min-width: 640px)": { padding: `0 ${tokens.space.x24} ${tokens.space.x56}` },
+    "(min-width: 1024px)": { padding: `0 ${tokens.space.x32} ${tokens.space.x56}` }
   }
 });
 
 export const surface = style({
   width: "100%",
-  borderRadius: 28,
-  background: "#f7f2fa",
-  padding: 12,
-  "@media": { "(min-width: 640px)": { padding: 16 } }
+  borderRadius: tokens.radius.xxxl,
+  background: tokens.color.surfaceMuted,
+  padding: tokens.space.x12,
+  "@media": { "(min-width: 640px)": { padding: tokens.space.x16 } }
 });
 
 export const statusPanel = style({
@@ -264,27 +265,27 @@ export const statusPanel = style({
   width: "100%",
   minHeight: 168,
   border: "1px solid transparent",
-  borderRadius: 28,
-  background: "#f7f2fa",
-  padding: "40px 24px",
-  transition: "border 140ms ease, background 140ms ease",
-  "@media": { "(min-width: 640px)": { padding: "48px 32px" } }
+  borderRadius: tokens.radius.xxxl,
+  background: tokens.color.surfaceMuted,
+  padding: `${tokens.space.x40} ${tokens.space.x24}`,
+  transition: `border ${tokens.motion.fast}, background ${tokens.motion.fast}`,
+  "@media": { "(min-width: 640px)": { padding: `${tokens.space.x48} ${tokens.space.x32}` } }
 });
 
 export const dragStatusPanel = style({
-  borderColor: "#6750a4",
+  borderColor: tokens.color.brand,
   borderStyle: "dashed"
 });
 
 export const errorStatusPanel = style({
-  background: "#fceeee"
+  background: tokens.color.surfaceDangerSoft
 });
 
 export const statusBody = style({
   display: "flex",
   flexDirection: "column",
   alignItems: "flex-start",
-  gap: 16,
+  gap: tokens.space.x16,
   "@media": { "(min-width: 640px)": { flexDirection: "row", alignItems: "center" } }
 });
 
@@ -295,14 +296,14 @@ export const statusIcon = style({
   width: 44,
   height: 44,
   flexShrink: 0,
-  borderRadius: 16,
-  background: "#eaddff",
-  color: "#4f378b"
+  borderRadius: tokens.radius.lg,
+  background: tokens.color.surfaceAccent,
+  color: tokens.color.textAccent
 });
 
 export const statusIconError = style({
-  background: "#ffdad6",
-  color: "#ba1a1a"
+  background: tokens.color.surfaceDangerStrong,
+  color: tokens.color.textDanger
 });
 
 export const spin = style({
@@ -311,16 +312,16 @@ export const spin = style({
 
 export const statusTitle = style({
   margin: 0,
-  color: "#1d1b20",
+  color: tokens.color.textPrimary,
   fontSize: 24,
   fontWeight: 650,
   lineHeight: 1.18
 });
 
 export const statusCopy = style({
-  margin: "8px 0 0",
+  margin: `${tokens.space.x8} 0 0`,
   maxWidth: 760,
-  color: "#49454f",
+  color: tokens.color.textSecondary,
   fontSize: 16,
   lineHeight: 1.7
 });
@@ -328,9 +329,9 @@ export const statusCopy = style({
 export const progressRow = style({
   display: "flex",
   alignItems: "center",
-  gap: 12,
-  marginTop: 20,
-  color: "#79747e",
+  gap: tokens.space.x12,
+  marginTop: tokens.space.x20,
+  color: tokens.color.textTertiary,
   fontSize: 14,
   fontWeight: 600
 });
@@ -339,39 +340,38 @@ export const progressTrack = style({
   width: 176,
   height: 6,
   overflow: "hidden",
-  borderRadius: 999,
-  background: "#eaddff"
+  borderRadius: tokens.radius.pill,
+  background: tokens.color.surfaceAccent
 });
 
 export const progressFill = style({
   width: "66%",
   height: "100%",
-  borderRadius: 999,
-  background: "#6750a4",
+  borderRadius: tokens.radius.pill,
+  background: tokens.color.brand,
   animation: "fitx-spin 1.2s linear infinite"
 });
 
-export const messageStack = style({
-  display: "grid",
-  gap: 12
+export const messageStackItem = style({
+  paddingBottom: tokens.space.x12
 });
 
 export const messageCard = style({
-  border: "1px solid #e7e0ec",
-  borderRadius: 24,
-  background: "#fffbfe",
-  padding: 16,
-  boxShadow: "0 1px 2px rgba(29, 27, 32, 0.05)",
-  "@media": { "(min-width: 640px)": { padding: 20 } }
+  border: `1px solid ${tokens.color.borderSubtle}`,
+  borderRadius: tokens.radius.xxl,
+  background: tokens.color.surface,
+  padding: tokens.space.x16,
+  boxShadow: tokens.color.shadowSoft,
+  "@media": { "(min-width: 640px)": { padding: tokens.space.x20 } }
 });
 
 export const insertTargetCard = style({
-  border: "1px dashed #cac4d0",
-  borderRadius: 24,
-  background: "#fffbfe",
-  padding: 10,
-  boxShadow: "inset 3px 0 0 #eaddff",
-  "@media": { "(min-width: 640px)": { padding: 12 } }
+  border: `1px dashed ${tokens.color.borderDefault}`,
+  borderRadius: tokens.radius.xxl,
+  background: tokens.color.surface,
+  padding: tokens.space.x10,
+  boxShadow: tokens.color.insetAccent,
+  "@media": { "(min-width: 640px)": { padding: tokens.space.x12 } }
 });
 
 export const insertTargetButton = style({
@@ -380,21 +380,21 @@ export const insertTargetButton = style({
   minHeight: 52,
   alignItems: "center",
   justifyContent: "space-between",
-  gap: 16,
+  gap: tokens.space.x16,
   border: 0,
-  borderRadius: 18,
-  background: "#f7f2fa",
-  color: "#4f378b",
-  padding: "14px 16px",
+  borderRadius: tokens.radius.xl,
+  background: tokens.color.surfaceMuted,
+  color: tokens.color.textAccent,
+  padding: `${tokens.space.x14} ${tokens.space.x16}`,
   textAlign: "left",
-  transition: "background 140ms ease, box-shadow 140ms ease, transform 140ms ease",
+  transition: `background ${tokens.motion.fast}, box-shadow ${tokens.motion.fast}, transform ${tokens.motion.fast}`,
   selectors: {
     "&:hover": {
-      background: "#eaddff"
+      background: tokens.color.surfaceAccent
     },
     "&:focus-visible": {
       outline: "none",
-      boxShadow: "0 0 0 3px rgba(103, 80, 164, 0.16)"
+      boxShadow: tokens.focus.brandStrong
     }
   }
 });
@@ -402,7 +402,7 @@ export const insertTargetButton = style({
 export const insertTargetText = style({
   display: "flex",
   flexDirection: "column",
-  gap: 2,
+  gap: tokens.space.x2,
   minWidth: 0
 });
 
@@ -413,7 +413,7 @@ export const insertTargetLabel = style({
 });
 
 export const insertTargetHint = style({
-  color: "#79747e",
+  color: tokens.color.textTertiary,
   fontSize: 12,
   fontWeight: 600,
   lineHeight: 1.3
@@ -423,8 +423,8 @@ export const messageHeader = style({
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
-  gap: 16,
-  marginBottom: 14
+  gap: tokens.space.x16,
+  marginBottom: tokens.space.x14
 });
 
 export const messageTitle = style({
@@ -433,14 +433,14 @@ export const messageTitle = style({
   overflow: "hidden",
   textOverflow: "ellipsis",
   whiteSpace: "nowrap",
-  color: "#1d1b20",
+  color: tokens.color.textPrimary,
   fontSize: 18,
   fontWeight: 650,
   lineHeight: 1.3
 });
 
 export const timestamp = style({
-  color: "#79747e",
+  color: tokens.color.textTertiary,
   fontSize: 14,
   fontWeight: 550
 });
@@ -449,7 +449,7 @@ export const fieldGrid = style({
   display: "grid",
   margin: 0,
   gridTemplateColumns: "minmax(0, 1fr)",
-  gap: 8,
+  gap: tokens.space.x8,
   "@media": {
     "(min-width: 640px)": { gridTemplateColumns: "repeat(2, minmax(0, 1fr))" },
     "(min-width: 960px)": { gridTemplateColumns: "repeat(3, minmax(0, 1fr))" },
@@ -459,20 +459,20 @@ export const fieldGrid = style({
 
 export const fieldShell = style({
   minWidth: 0,
-  border: "1px solid #cac4d0",
-  borderRadius: 14,
-  background: "#fffbfe",
-  padding: "8px 10px"
+  border: `1px solid ${tokens.color.borderDefault}`,
+  borderRadius: tokens.radius.md,
+  background: tokens.color.surface,
+  padding: `${tokens.space.x8} ${tokens.space.x10}`
 });
 
 export const fieldLabel = style({
   display: "flex",
   flexWrap: "wrap",
   alignItems: "center",
-  gap: "2px 6px",
+  gap: `${tokens.space.x2} ${tokens.space.x6}`,
   minHeight: 18,
-  marginBottom: 4,
-  color: "#79747e",
+  marginBottom: tokens.space.x4,
+  color: tokens.color.textTertiary,
   fontSize: 12,
   fontWeight: 650,
   lineHeight: 1.35
@@ -483,7 +483,7 @@ export const fieldValue = style({
   margin: 0,
   overflow: "hidden",
   textOverflow: "ellipsis",
-  color: "#1d1b20",
+  color: tokens.color.textPrimary,
   fontSize: 14,
   fontWeight: 650,
   lineHeight: 1.45,
@@ -503,13 +503,33 @@ export const virtualRow = style({
 });
 
 export const emptyResult = style({
-  borderRadius: 24,
-  background: "#fffbfe",
-  padding: "32px 20px",
-  color: "#79747e",
+  borderRadius: tokens.radius.xxl,
+  background: tokens.color.surface,
+  padding: `${tokens.space.x32} ${tokens.space.x20}`,
+  color: tokens.color.textTertiary,
   textAlign: "center",
   fontSize: 14,
   fontWeight: 600
+});
+
+export const messageScroll = style({
+  maxHeight: "calc(100vh - 184px)",
+  overflow: "auto"
+});
+
+export const messageMenuContent = style({
+  borderRadius: tokens.radius.lg,
+  border: `1px solid ${tokens.color.borderSubtle}`,
+  background: tokens.color.surface,
+  padding: tokens.space.x6,
+  boxShadow: tokens.color.shadowMenu
+});
+
+export const messageMenuItem = style({
+  borderRadius: tokens.radius.sm,
+  padding: `${tokens.space.x8} ${tokens.space.x12}`,
+  color: tokens.color.textTertiary,
+  fontSize: 14
 });
 
 export const overlay = style({
@@ -519,8 +539,8 @@ export const overlay = style({
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  background: "rgba(29, 27, 32, 0.28)",
-  padding: "24px 16px"
+  background: tokens.color.scrim,
+  padding: `${tokens.space.x24} ${tokens.space.x16}`
 });
 
 export const dialogContent = style({
@@ -530,64 +550,64 @@ export const dialogContent = style({
   maxHeight: "86vh",
   flexDirection: "column",
   overflow: "hidden",
-  borderRadius: 28,
-  background: "#fffbfe",
-  boxShadow: "0 24px 64px rgba(29, 27, 32, 0.24)"
+  borderRadius: tokens.radius.xxxl,
+  background: tokens.color.surface,
+  boxShadow: tokens.color.shadowDialog
 });
 
 export const dialogHeader = style({
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
-  gap: 16,
-  borderBottom: "1px solid #e7e0ec",
-  background: "#f7f2fa",
-  padding: "16px 20px"
+  gap: tokens.space.x16,
+  borderBottom: `1px solid ${tokens.color.borderSubtle}`,
+  background: tokens.color.surfaceMuted,
+  padding: `${tokens.space.x16} ${tokens.space.x20}`
 });
 
 export const dialogTitle = style({
   margin: 0,
-  color: "#1d1b20",
+  color: tokens.color.textPrimary,
   fontSize: 20,
   fontWeight: 650
 });
 
 export const dialogBody = style({
   overflowY: "auto",
-  padding: "16px 20px"
+  padding: `${tokens.space.x16} ${tokens.space.x20}`
 });
 
 export const dialogFooter = style({
   display: "flex",
   flexDirection: "column-reverse",
-  gap: 8,
-  borderTop: "1px solid #e7e0ec",
-  padding: "16px 20px",
+  gap: tokens.space.x8,
+  borderTop: `1px solid ${tokens.color.borderSubtle}`,
+  padding: `${tokens.space.x16} ${tokens.space.x20}`,
   "@media": { "(min-width: 640px)": { flexDirection: "row", justifyContent: "flex-end" } }
 });
 
 export const issueItem = style({
-  border: "1px solid #e7e0ec",
-  borderRadius: 18,
-  background: "#fffbfe",
-  padding: 16,
-  boxShadow: "inset 3px 0 0 #eaddff"
+  border: `1px solid ${tokens.color.borderSubtle}`,
+  borderRadius: tokens.radius.xl,
+  background: tokens.color.surface,
+  padding: tokens.space.x16,
+  boxShadow: tokens.color.insetAccent
 });
 
 export const issueList = style({
   display: "grid",
-  gap: 8
+  gap: tokens.space.x8
 });
 
 export const issueTitle = style({
-  color: "#1d1b20",
+  color: tokens.color.textPrimary,
   fontSize: 14,
   fontWeight: 700
 });
 
 export const issueDescription = style({
-  margin: "4px 0 0",
-  color: "#49454f",
+  margin: `${tokens.space.x4} 0 0`,
+  color: tokens.color.textSecondary,
   fontSize: 14,
   fontWeight: 550
 });

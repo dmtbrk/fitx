@@ -14,6 +14,8 @@ import {
   fieldLabel,
   fieldShell,
   fieldValue,
+  messageMenuContent,
+  messageMenuItem,
   insertTargetButton,
   insertTargetCard,
   insertTargetHint,
@@ -22,7 +24,8 @@ import {
   iconOnlyButton,
   messageCard,
   messageHeader,
-  messageStack,
+  messageScroll,
+  messageStackItem,
   messageTitle,
   surface,
   timestamp,
@@ -92,7 +95,7 @@ export function MessageStream({
         <div
           ref={parentRef}
           data-testid="message-scroll"
-          style={{ maxHeight: "calc(100vh - 184px)", overflow: "auto" }}
+          className={messageScroll}
         >
           <div
             className={virtualList}
@@ -114,7 +117,7 @@ export function MessageStream({
                   style={{ transform: `translateY(${item.start}px)` }}
                 >
                   {entry.kind === "message" ? (
-                    <div className={messageStack} style={{ paddingBottom: 12 }}>
+                    <div className={messageStackItem}>
                       <MessageCard
                         message={entry.message}
                         edited={editedMessageIds.has(entry.message.id)}
@@ -132,7 +135,7 @@ export function MessageStream({
                       />
                     </div>
                   ) : (
-                    <div className={messageStack} style={{ paddingBottom: 12 }}>
+                    <div className={messageStackItem}>
                       <InsertTargetRow
                         label={entry.label}
                         hint={entry.hint}
@@ -358,24 +361,13 @@ function MessageCard({
                     : null;
                   nextTarget?.focus({ preventScroll: true });
                 }}
-                style={{
-                  borderRadius: 16,
-                  border: "1px solid #e7e0ec",
-                  background: "#fffbfe",
-                  padding: 6,
-                  boxShadow: "0 12px 32px rgba(29,27,32,.18)",
-                }}
+                className={messageMenuContent}
               >
                 <DropdownMenu.Item
                   onSelect={() => {
                     onDuplicate(editButtonElementRef.current);
                   }}
-                  style={{
-                    borderRadius: 10,
-                    padding: "8px 12px",
-                    color: "#79747e",
-                    fontSize: 14,
-                  }}
+                  className={messageMenuItem}
                 >
                   Duplicate message
                 </DropdownMenu.Item>
@@ -392,12 +384,7 @@ function MessageCard({
                     }
                     deleteFocusRequestedRef.current = false;
                   }}
-                  style={{
-                    borderRadius: 10,
-                    padding: "8px 12px",
-                    color: "#79747e",
-                    fontSize: 14,
-                  }}
+                  className={messageMenuItem}
                 >
                   Delete message
                 </DropdownMenu.Item>
