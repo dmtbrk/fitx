@@ -67,6 +67,14 @@ You may proceed without approval for:
 - Narrow implementation tasks explicitly requested by the user.
 - Running relevant local verification commands.
 
+## Git Coordination
+
+- Use one feature or bugfix branch per scoped task when code changes are involved.
+- Preserve existing user changes. Do not overwrite, revert, or absorb unrelated work; stop and ask when those changes conflict with the requested task.
+- Prefer clean, verified commits and fast-forward integration into `master` when the task is complete.
+- After `master` advances, update active follow-up branches from `master` with a fast-forward or rebase only when appropriate for that branch's published state.
+- Include branch, commit, and worktree state in the final summary when Git actions were performed or when that state affects the next recommended action.
+
 ## Handoff Shape
 
 Every specialist handoff should include:

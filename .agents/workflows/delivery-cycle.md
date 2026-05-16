@@ -36,6 +36,13 @@ Move one scoped unit of work from request to verified result while keeping plann
 
 11. Orchestrator summarizes outcome and next action.
 
+## Git Handling
+
+- Start scoped implementation work on a dedicated feature or bugfix branch.
+- Before changing files, inspect the worktree and treat pre-existing user changes as user-owned unless they are clearly part of the requested task.
+- Commit only after relevant verification passes, then integrate completed work into `master` with a fast-forward merge when possible.
+- When follow-up work continues on another active branch, bring it up to date from `master` before proceeding if that can be done without rewriting shared history.
+
 ## Parallelism
 
 Use parallel agents only when their work is independent:
@@ -63,4 +70,5 @@ Every delivery cycle ends with:
 - verification command and result
 - review findings or "no issues found"
 - security findings when applicable
+- branch, commit, and worktree state when Git actions occurred or Git state matters for follow-up work
 - open risks or next scoped task
