@@ -205,7 +205,7 @@ export const messageToolbarSurface = style({
 export const messageToolbarRow = style({
   display: "flex",
   alignItems: "center",
-  justifyContent: "space-between",
+  justifyContent: "flex-start",
   gap: tokens.space.x8,
   flexWrap: "wrap"
 });
@@ -264,6 +264,19 @@ export const messageToolbarSummary = style({
 export const messageToolbarFilters = style({
   borderTop: `1px solid ${tokens.color.borderSubtle}`,
   paddingTop: tokens.space.x8
+});
+
+export const messageToolbarSelectionCount = style({
+  display: "inline-flex",
+  alignItems: "center",
+  minHeight: 42,
+  borderRadius: tokens.radius.pill,
+  padding: `${tokens.space.x9} ${tokens.space.x14}`,
+  background: tokens.color.surfaceAccent,
+  color: tokens.color.textAccent,
+  fontSize: 14,
+  fontWeight: 650,
+  whiteSpace: "nowrap"
 });
 
 export const filterBar = style({
@@ -438,6 +451,13 @@ export const messageCard = style({
   background: tokens.color.surface,
   padding: tokens.space.x16,
   boxShadow: tokens.color.shadowSoft,
+  selectors: {
+    '&[data-selected="true"]': {
+      borderColor: tokens.color.borderAccent,
+      background: tokens.color.surfaceEditorSoft,
+      boxShadow: tokens.color.insetAccent,
+    },
+  },
   "@media": { "(min-width: 640px)": { padding: tokens.space.x20 } }
 });
 
@@ -501,6 +521,45 @@ export const messageHeader = style({
   justifyContent: "space-between",
   gap: tokens.space.x16,
   marginBottom: tokens.space.x14
+});
+
+export const messageHeaderMain = style({
+  display: "flex",
+  alignItems: "center",
+  gap: tokens.space.x8,
+  minWidth: 0
+});
+
+export const messageHeaderActions = style({
+  display: "flex",
+  alignItems: "center",
+  gap: tokens.space.x8,
+  flexShrink: 0
+});
+
+export const messageSelectionControl = style({
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  width: 40,
+  height: 40,
+  flexShrink: 0,
+  borderRadius: tokens.radius.pill,
+  background: tokens.color.surfaceMuted,
+  cursor: "pointer",
+  selectors: {
+    "&:focus-within": {
+      boxShadow: tokens.focus.brandStrong,
+    },
+  },
+});
+
+export const messageSelectionInput = style({
+  width: 24,
+  height: 24,
+  margin: 0,
+  accentColor: tokens.color.brand,
+  cursor: "pointer",
 });
 
 export const messageTitle = style({
@@ -620,6 +679,10 @@ export const overlay = style({
 });
 
 export const dialogContent = style({
+  position: "fixed",
+  top: "50%",
+  left: "50%",
+  zIndex: 51,
   display: "flex",
   width: "100%",
   maxWidth: 720,
@@ -628,7 +691,8 @@ export const dialogContent = style({
   overflow: "hidden",
   borderRadius: tokens.radius.xxxl,
   background: tokens.color.surface,
-  boxShadow: tokens.color.shadowDialog
+  boxShadow: tokens.color.shadowDialog,
+  transform: "translate(-50%, -50%)"
 });
 
 export const dialogHeader = style({

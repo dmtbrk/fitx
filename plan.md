@@ -4,6 +4,12 @@
 
 Implementation in progress. Phase 1 risk-first FIT core slice is complete; the current focus is production architecture hardening before adding more structural editing and insight tooling.
 
+Current UI direction:
+
+- Persist the two-row message toolbar: collection actions on row 1, always-visible filters on row 2.
+- Use a narrow selection-mode probe for visible filtered messages with bulk delete, while keeping filters locked during selection.
+- Keep add-message and selection modes mutually exclusive so the toolbar stays simple and predictable.
+
 Completed in Phase 1:
 
 - Added FIT core module boundaries for profile lookup, edit scaffolding, validation scaffolding, CRC, parser, document types, and writer.

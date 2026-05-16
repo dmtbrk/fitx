@@ -8,7 +8,6 @@ test("message editor stages cancel and apply behavior", async ({ page }) => {
   await page.locator('input[type="file"]').setInputFiles(path.join(process.cwd(), "tests/fixtures/Activity.fit"));
 
   await expect(page.getByText("Activity.fit")).toBeVisible();
-  await page.getByRole("button", { name: "Filters" }).click();
   await page.getByRole("button", { name: /^record\d+$/ }).click();
 
   const editButton = page.getByRole("button", { name: "Edit record" }).first();
@@ -139,7 +138,6 @@ test("duplicate message opens the editor, cancels without committing, and export
   await page.getByRole("button", { name: "Apply" }).click();
 
   await expect(page.getByText("1 issue")).toBeVisible();
-  await page.getByRole("button", { name: "Filters" }).click();
   await expect(page.getByRole("button", { name: /^Issues\s*1$/ })).toBeVisible();
 
   await page.getByRole("button", { name: "Download" }).click();
@@ -170,7 +168,6 @@ test("raw inserted message reopens without duplicating existing added fields", a
   await page.locator('input[type="file"]').setInputFiles(fixturePath);
 
   await expect(page.getByText("Activity.fit")).toBeVisible();
-  await page.getByRole("button", { name: "Filters" }).click();
   const insertTargetName = `Insert message between ${originalDocument.messages[0].messageName} and ${originalDocument.messages[1].messageName}`;
   await page.getByRole("button", { name: "Add message" }).click();
   await page.getByRole("button", { name: insertTargetName }).click();
@@ -478,7 +475,6 @@ test("message editor preserves scroll and keeps focus within the loaded view", a
   await page.locator('input[type="file"]').setInputFiles(path.join(process.cwd(), "tests/fixtures/Activity.fit"));
 
   await expect(page.getByText("Activity.fit")).toBeVisible();
-  await page.getByRole("button", { name: "Filters" }).click();
   await page.getByRole("button", { name: /^record\d+$/ }).click();
 
   const scroll = page.getByTestId("message-scroll");

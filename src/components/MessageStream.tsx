@@ -24,8 +24,12 @@ import {
   iconOnlyButton,
   messageCard,
   messageHeader,
+  messageHeaderActions,
+  messageHeaderMain,
   messageScroll,
   messageStackItem,
+  messageSelectionControl,
+  messageSelectionInput,
   messageTitle,
   surface,
   timestamp,
@@ -36,6 +40,8 @@ import {
 interface MessageStreamProps {
   messages: readonly FitQuickMessageViewModel[];
   editedMessageIds: ReadonlySet<string>;
+  selectionMode: boolean;
+  selectedMessageIds: ReadonlySet<string>;
   insertMode: boolean;
   outerSectionRef: RefObject<HTMLElement | null>;
   scrollResetKey: string;
@@ -48,6 +54,7 @@ interface MessageStreamProps {
     focusTarget: HTMLButtonElement | null,
   ) => void;
   onDeleteMessage: (messageId: string) => void;
+  onToggleSelectedMessage: (messageId: string) => void;
   onSelectInsertPosition: (
     position: FitInsertPosition,
     focusTarget: HTMLButtonElement | null,
@@ -61,12 +68,15 @@ interface MessageStreamProps {
 export function MessageStream({
   messages,
   editedMessageIds,
+  selectionMode,
+  selectedMessageIds,
   insertMode,
   outerSectionRef,
   scrollResetKey,
   onEditMessage,
   onDuplicateMessage,
   onDeleteMessage,
+  onToggleSelectedMessage,
   onSelectInsertPosition,
   registerEditButtonRef,
 }: MessageStreamProps) {
@@ -121,6 +131,8 @@ export function MessageStream({
                       <MessageCard
                         message={entry.message}
                         edited={editedMessageIds.has(entry.message.id)}
+                        selectionMode={selectionMode}
+                        selected={selectedMessageIds.has(entry.message.id)}
                         onEdit={(focusTarget) =>
                           onEditMessage(entry.message.id, focusTarget)
                         }
@@ -128,6 +140,9 @@ export function MessageStream({
                           onDuplicateMessage(entry.message.id, focusTarget)
                         }
                         onDelete={() => onDeleteMessage(entry.message.id)}
+                        onToggleSelected={() =>
+                          onToggleSelectedMessage(entry.message.id)
+                        }
                         editButtonRef={(element) =>
                           registerEditButtonRef(entry.message.id, element)
                         }
@@ -291,17 +306,23 @@ function InsertTargetRow({
 function MessageCard({
   message,
   edited,
+  selectionMode,
+  selected,
   onEdit,
   onDuplicate,
   onDelete,
+  onToggleSelected,
   editButtonRef,
   restoreFocusTargetRef,
 }: {
   message: FitQuickMessageViewModel;
   edited: boolean;
+  selectionMode: boolean;
+  selected: boolean;
   onEdit: (focusTarget: HTMLButtonElement | null) => void;
   onDuplicate: (focusTarget: HTMLButtonElement | null) => void;
   onDelete: () => void;
+  onToggleSelected: () => void;
   editButtonRef: (element: HTMLButtonElement | null) => void;
   restoreFocusTargetRef: RefObject<HTMLElement | null>;
 }) {
@@ -315,18 +336,33 @@ function MessageCard({
       data-message-id={message.id}
       data-message-name={message.messageName}
       data-edited={edited ? "true" : "false"}
+      data-selected={selected ? "true" : "false"}
     >
       <div className={messageHeader}>
-        <h2 className={messageTitle}>
-          <span>{message.messageName}</span>
-          {message.timestampLabel ? (
-            <>
-              <span className={timestamp}> · </span>
-              <span className={timestamp}>{message.timestampLabel}</span>
-            </>
+        <div className={messageHeaderMain}>
+          {selectionMode ? (
+            <label className={messageSelectionControl}>
+              <input
+                className={messageSelectionInput}
+                type="checkbox"
+                data-selection-control="true"
+                checked={selected}
+                aria-label={`Select ${message.messageName}`}
+                onChange={onToggleSelected}
+              />
+            </label>
           ) : null}
-        </h2>
-        <div>
+          <h2 className={messageTitle}>
+            <span>{message.messageName}</span>
+            {message.timestampLabel ? (
+              <>
+                <span className={timestamp}> · </span>
+                <span className={timestamp}>{message.timestampLabel}</span>
+              </>
+            ) : null}
+          </h2>
+        </div>
+        <div className={messageHeaderActions}>
           <button
             ref={(element) => {
               editButtonRef(element);

@@ -6,11 +6,18 @@ import {
 import {
   clearDeletedMessageEditor,
   deleteMessageSessionState,
+  deleteSelectedMessagesSessionState,
   describeInsertPosition,
   normalizeInsertPosition,
   shouldDownloadImmediately,
 } from "./useFitEditorSession";
-import { buildEditOverlay, getEditsForMessage, isMessageDeleted } from "./editOverlay";
+import {
+  buildEditOverlay,
+  createEmptyEditOverlay,
+  getEditsForMessage,
+  insertDuplicateMessage,
+  isMessageDeleted,
+} from "./editOverlay";
 import type { FitDataRecord, FitDocument, FitField, FitFieldValueEdit } from "../fit";
 
 describe("fit editor session issue mapping", () => {
@@ -147,6 +154,32 @@ describe("fit editor session issue mapping", () => {
         value: 30,
       },
     ]);
+    expect(next.editingMessageId).toBeNull();
+  });
+
+  it("bulk deletes selected messages without re-deleting dependent inserts", () => {
+    const sourceMessage = makeMessage("message-1", "record", []);
+    const duplicateMessage = makeMessage("duplicate-message-1", "record", []);
+    const overlay = insertDuplicateMessage(createEmptyEditOverlay(), {
+      id: duplicateMessage.id,
+      origin: "duplicate",
+      position: {
+        afterMessageId: sourceMessage.id,
+        beforeMessageId: null,
+      },
+      sourceMessageId: sourceMessage.id,
+      message: duplicateMessage,
+    });
+
+    const next = deleteSelectedMessagesSessionState(overlay, null, [
+      sourceMessage.id,
+      duplicateMessage.id,
+    ]);
+
+    expect(next.editOverlay.deletedMessageIds).toEqual(
+      new Set([sourceMessage.id]),
+    );
+    expect(next.editOverlay.insertedMessages).toEqual(new Map());
     expect(next.editingMessageId).toBeNull();
   });
 

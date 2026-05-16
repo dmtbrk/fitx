@@ -1,4 +1,4 @@
-import { useMemo, useState, type Dispatch, type SetStateAction } from "react";
+import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react";
 import type {
   FitDataRecord,
   FitDocument,
@@ -48,6 +48,9 @@ export interface FitEditorSession {
   readonly state: FitEditorState;
   readonly activeFilter: FitMessageFilter;
   readonly rawInsertMode: boolean;
+  readonly selectionMode: boolean;
+  readonly selectedMessageIds: ReadonlySet<string>;
+  readonly selectedMessageCount: number;
   readonly selectedInsertPosition: FitInsertPosition | null;
   readonly selectedInsertPositionLabel: string | null;
   readonly issuesOpen: boolean;
@@ -67,6 +70,10 @@ export interface FitEditorSession {
   readonly setActiveFilter: Dispatch<SetStateAction<FitMessageFilter>>;
   readonly startAddMessage: () => void;
   readonly cancelAddMessage: () => void;
+  readonly startSelectionMode: () => void;
+  readonly clearSelectionMode: () => void;
+  readonly toggleSelectedMessage: (messageId: string) => void;
+  readonly deleteSelectedMessages: () => void;
   readonly selectInsertPosition: (position: FitInsertPosition) => void;
   readonly applyRawInsertedMessage: (
     input: FitRawInsertedMessageInput,
@@ -130,6 +137,10 @@ export function useFitEditorSession(): FitEditorSession {
   const [rawInsertMode, setRawInsertMode] = useState(false);
   const [rawInsertPreviousFilter, setRawInsertPreviousFilter] =
     useState<FitMessageFilter | null>(null);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedMessageIds, setSelectedMessageIds] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
   const [rawInsertPosition, setRawInsertPosition] =
     useState<FitInsertPosition | null>(null);
   const [rawInsertPositionLabel, setRawInsertPositionLabel] =
@@ -189,6 +200,10 @@ export function useFitEditorSession(): FitEditorSession {
       editedMessageIds,
     });
   }, [activeFilter, editedMessageIds, issues, rawInsertMode, view]);
+  const visibleMessageIds = useMemo(
+    () => new Set(visibleMessages.map((message) => message.id)),
+    [visibleMessages],
+  );
   const editingMessage = useMemo(() => {
     if (!loaded || !editingTarget) {
       return null;
@@ -213,6 +228,7 @@ export function useFitEditorSession(): FitEditorSession {
   }, [editOverlay, editingTarget, loaded]);
   const issueCount = issues.length;
   const editCount = countEditOverlayEdits(editOverlay);
+  const selectedMessageCount = selectedMessageIds.size;
   const showDownloadAction =
     issuesOpenedFromDownload && !validation.hasExportBlockingIssues;
   const editingMessageCanAddFields =
@@ -221,9 +237,37 @@ export function useFitEditorSession(): FitEditorSession {
       editingTarget?.kind === "edit" &&
       collectInsertedMessages(editOverlay).has(editingTarget.messageId)
     );
+  useEffect(() => {
+    if (!selectionMode) {
+      return;
+    }
+
+    setSelectedMessageIds((current) => {
+      if (current.size === 0) {
+        return current;
+      }
+
+      let changed = false;
+      const next = new Set<string>();
+      for (const messageId of current) {
+        if (visibleMessageIds.has(messageId)) {
+          next.add(messageId);
+          continue;
+        }
+
+        changed = true;
+      }
+
+      return changed ? next : current;
+    });
+  }, [selectionMode, visibleMessageIds]);
   const setActiveFilter: Dispatch<SetStateAction<FitMessageFilter>> = (
     nextValue,
   ) => {
+    if (selectionMode) {
+      return;
+    }
+
     if (!rawInsertMode) {
       setActiveFilterState(nextValue);
       return;
@@ -251,6 +295,8 @@ export function useFitEditorSession(): FitEditorSession {
     setEditingTarget(null);
     setRawInsertMode(false);
     setRawInsertPreviousFilter(null);
+    setSelectionMode(false);
+    setSelectedMessageIds(new Set());
     setRawInsertPosition(null);
     setRawInsertPositionLabel(null);
     setRawInsertBeforeInsertedMessageId(null);
@@ -329,6 +375,11 @@ export function useFitEditorSession(): FitEditorSession {
   }
 
   function showIssuesInList() {
+    if (selectionMode) {
+      setSelectionMode(false);
+      setSelectedMessageIds(new Set());
+    }
+
     setActiveFilterState("issues");
     setIssuesOpen(false);
   }
@@ -339,6 +390,8 @@ export function useFitEditorSession(): FitEditorSession {
     }
 
     setEditingTarget(null);
+    setSelectionMode(false);
+    setSelectedMessageIds(new Set());
     setRawInsertPreviousFilter(activeFilter);
     setRawInsertMode(true);
     setRawInsertPosition(null);
@@ -357,6 +410,41 @@ export function useFitEditorSession(): FitEditorSession {
       rawInsertPreviousFilter ?? currentFilter,
     );
     setRawInsertPreviousFilter(null);
+  }
+
+  function startSelectionMode() {
+    if (visibleMessages.length === 0) {
+      return;
+    }
+
+    if (rawInsertMode) {
+      cancelAddMessage();
+    }
+
+    setSelectionMode(true);
+    setSelectedMessageIds(new Set());
+  }
+
+  function clearSelectionMode() {
+    setSelectionMode(false);
+    setSelectedMessageIds(new Set());
+  }
+
+  function toggleSelectedMessage(messageId: string) {
+    if (!selectionMode) {
+      return;
+    }
+
+    setSelectedMessageIds((current) => {
+      const next = new Set(current);
+      if (next.has(messageId)) {
+        next.delete(messageId);
+        return next;
+      }
+
+      next.add(messageId);
+      return next;
+    });
   }
 
   function selectInsertPosition(position: FitInsertPosition) {
@@ -451,9 +539,57 @@ export function useFitEditorSession(): FitEditorSession {
       deleteMessageFromOverlay(currentOverlay, messageId),
     );
 
+    setSelectedMessageIds((current) => {
+      if (!current.has(messageId)) {
+        return current;
+      }
+
+      const next = new Set(current);
+      next.delete(messageId);
+      return next;
+    });
     setEditingTarget((currentTarget) =>
       clearDeletedMessageTarget(currentTarget, messageId),
     );
+  }
+
+  function deleteSelectedMessages() {
+    if (!selectionMode || selectedMessageIds.size === 0) {
+      return;
+    }
+
+    const selectedCount = selectedMessageIds.size;
+    const confirmed = window.confirm(
+      `Delete ${selectedCount} selected ${selectedCount === 1 ? "message" : "messages"}? This removes ${selectedCount === 1 ? "it" : "them"} from the export.`,
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    const selectedIds = new Set(selectedMessageIds);
+    const initiallyInsertedMessageIds = new Set(
+      collectInsertedMessages(editOverlay).keys(),
+    );
+    for (const message of visibleMessages) {
+      if (!selectedIds.has(message.id)) {
+        continue;
+      }
+
+      setEditOverlay((currentOverlay) =>
+        shouldDeleteSelectedMessage(
+          currentOverlay,
+          message.id,
+          initiallyInsertedMessageIds,
+        )
+          ? deleteMessageFromOverlay(currentOverlay, message.id)
+          : currentOverlay,
+      );
+      setEditingTarget((currentTarget) =>
+        clearDeletedMessageTarget(currentTarget, message.id),
+      );
+    }
+
+    clearSelectionMode();
   }
 
   function selectMessage(messageId: string) {
@@ -494,6 +630,9 @@ export function useFitEditorSession(): FitEditorSession {
     state,
     activeFilter,
     rawInsertMode,
+    selectionMode,
+    selectedMessageIds,
+    selectedMessageCount,
     selectedInsertPosition: rawInsertPosition,
     selectedInsertPositionLabel: rawInsertPositionLabel,
     issuesOpen,
@@ -513,6 +652,10 @@ export function useFitEditorSession(): FitEditorSession {
     setActiveFilter,
     startAddMessage,
     cancelAddMessage,
+    startSelectionMode,
+    clearSelectionMode,
+    toggleSelectedMessage,
+    deleteSelectedMessages,
     selectInsertPosition,
     applyRawInsertedMessage,
     openIssues,
@@ -771,6 +914,53 @@ export function deleteMessageSessionState(
       deletedMessageId,
     ),
   };
+}
+
+export function deleteSelectedMessagesSessionState(
+  editOverlay: FitEditOverlay,
+  editingMessageId: string | null,
+  selectedMessageIds: readonly string[],
+): FitDeletedMessageUpdate {
+  let nextOverlay = editOverlay;
+  let nextEditingMessageId = editingMessageId;
+  const initiallyInsertedMessageIds = new Set(
+    editOverlay.insertedMessages.keys(),
+  );
+
+  for (const messageId of selectedMessageIds) {
+    if (
+      !shouldDeleteSelectedMessage(
+        nextOverlay,
+        messageId,
+        initiallyInsertedMessageIds,
+      )
+    ) {
+      continue;
+    }
+
+    nextOverlay = deleteMessageFromOverlay(nextOverlay, messageId);
+    nextEditingMessageId = clearDeletedMessageEditor(
+      nextEditingMessageId,
+      messageId,
+    );
+  }
+
+  return {
+    editOverlay: nextOverlay,
+    editingMessageId: nextEditingMessageId,
+    };
+}
+
+function shouldDeleteSelectedMessage(
+  overlay: FitEditOverlay,
+  messageId: string,
+  initiallyInsertedMessageIds: ReadonlySet<string>,
+): boolean {
+  if (overlay.messages.has(messageId) || overlay.insertedMessages.has(messageId)) {
+    return true;
+  }
+
+  return !initiallyInsertedMessageIds.has(messageId);
 }
 
 function createDuplicateMessageId(messageId: string): string {

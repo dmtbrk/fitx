@@ -1,6 +1,7 @@
 import {
   type ChangeEvent,
   type DragEvent,
+  useLayoutEffect,
   useRef,
   useState,
 } from "react";
@@ -27,9 +28,11 @@ function App() {
   const [isDragging, setIsDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const uploadButtonRef = useRef<HTMLButtonElement | null>(null);
+  const selectButtonRef = useRef<HTMLButtonElement | null>(null);
   const messageListRef = useRef<HTMLElement | null>(null);
   const editButtonRefs = useRef(new Map<string, HTMLButtonElement | null>());
   const closeFocusTargetRef = useRef<HTMLButtonElement | null>(null);
+  const previousSelectionModeRef = useRef(session.selectionMode);
 
   const loaded = session.state.status === "loaded" ? session.state : null;
   const fallbackFocusTarget = loaded
@@ -38,6 +41,25 @@ function App() {
   const scrollResetKey = loaded
     ? `${getLoadedDocumentScrollIdentity(loaded.document)}:${stringifyFitMessageFilter(session.activeFilter)}`
     : "unloaded";
+
+  useLayoutEffect(() => {
+    const enteringSelectionMode =
+      session.selectionMode && !previousSelectionModeRef.current;
+    const exitingSelectionMode =
+      !session.selectionMode && previousSelectionModeRef.current;
+
+    if (enteringSelectionMode) {
+      const firstSelectionControl =
+        messageListRef.current?.querySelector<HTMLElement>(
+          '[data-selection-control="true"]',
+        ) ?? selectButtonRef.current;
+      firstSelectionControl?.focus({ preventScroll: true });
+    } else if (exitingSelectionMode) {
+      selectButtonRef.current?.focus({ preventScroll: true });
+    }
+
+    previousSelectionModeRef.current = session.selectionMode;
+  }, [session.selectionMode]);
 
   function openUpload() {
     inputRef.current?.click();
@@ -89,8 +111,14 @@ function App() {
       {loaded && session.view ? (
         <MessageToolbar
           addMessageMode={session.rawInsertMode}
+          selectionMode={session.selectionMode}
+          selectedMessageCount={session.selectedMessageCount}
+          selectionDisabled={session.visibleMessages.length === 0}
           activeFilter={session.activeFilter}
           filterOptions={session.view.filterOptions}
+          selectButtonRef={(element) => {
+            selectButtonRef.current = element;
+          }}
           onAddMessage={() => {
             if (session.rawInsertMode) {
               session.cancelAddMessage();
@@ -99,6 +127,9 @@ function App() {
 
             session.startAddMessage();
           }}
+          onStartSelection={session.startSelectionMode}
+          onDeleteSelected={session.deleteSelectedMessages}
+          onClearSelection={session.clearSelectionMode}
           onFilterChange={session.setActiveFilter}
         />
       ) : null}
@@ -107,6 +138,8 @@ function App() {
           <MessageStream
             messages={session.visibleMessages}
             editedMessageIds={session.editedMessageIds}
+            selectionMode={session.selectionMode}
+            selectedMessageIds={session.selectedMessageIds}
             insertMode={session.rawInsertMode}
             outerSectionRef={messageListRef}
             scrollResetKey={scrollResetKey}
@@ -123,6 +156,7 @@ function App() {
             onDeleteMessage={(messageId) => {
               session.deleteMessage(messageId);
             }}
+            onToggleSelectedMessage={session.toggleSelectedMessage}
             onSelectInsertPosition={(position, focusTarget) => {
               closeFocusTargetRef.current = focusTarget ?? null;
               session.selectInsertPosition(position);

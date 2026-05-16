@@ -1,139 +1,100 @@
-import { useLayoutEffect, useId, useRef, useState } from "react";
-import { Filter, Plus, X } from "lucide-react";
+import { Plus, SquareCheck, Trash2, X } from "lucide-react";
 import type { FitFilterOption, FitMessageFilter } from "../editor";
 import { FilterBar } from "./FilterBar";
 import {
+  dangerButton,
   messageToolbar,
-  messageToolbarActions,
-  messageToolbarDisclosure,
-  messageToolbarDisclosureActive,
-  messageToolbarDisclosureIcon,
   messageToolbarFilters,
   messageToolbarRow,
-  messageToolbarSummary,
+  messageToolbarSelectionCount,
   messageToolbarSurface,
   secondaryButton,
 } from "../styles/app.css";
 
 interface MessageToolbarProps {
   readonly addMessageMode: boolean;
+  readonly selectionMode: boolean;
+  readonly selectedMessageCount: number;
+  readonly selectionDisabled: boolean;
   readonly activeFilter: FitMessageFilter;
   readonly filterOptions: readonly FitFilterOption[];
+  readonly selectButtonRef?: (element: HTMLButtonElement | null) => void;
   readonly onAddMessage: () => void;
+  readonly onStartSelection: () => void;
+  readonly onDeleteSelected: () => void;
+  readonly onClearSelection: () => void;
   readonly onFilterChange: (filter: FitMessageFilter) => void;
 }
 
 export function MessageToolbar({
   addMessageMode,
+  selectionMode,
+  selectedMessageCount,
+  selectionDisabled,
   activeFilter,
   filterOptions,
+  selectButtonRef,
   onAddMessage,
+  onStartSelection,
+  onDeleteSelected,
+  onClearSelection,
   onFilterChange,
 }: MessageToolbarProps) {
-  const [filtersOpen, setFiltersOpen] = useState(false);
-  const filtersId = useId();
-  const filtersDisclosureRef = useRef<HTMLButtonElement>(null);
-  const restoreDisclosureFocusRef = useRef(false);
-  const activeFilterSummary = filtersOpen
-    ? null
-    : getActiveFilterSummary(filterOptions, activeFilter);
-
-  useLayoutEffect(() => {
-    if (!filtersOpen || !restoreDisclosureFocusRef.current) {
-      return;
-    }
-
-    restoreDisclosureFocusRef.current = false;
-    filtersDisclosureRef.current?.focus();
-  }, [filtersOpen]);
-
   return (
     <div className={messageToolbar}>
       <div className={messageToolbarSurface}>
         <div className={messageToolbarRow}>
-          <button className={secondaryButton} type="button" onClick={onAddMessage}>
-            {addMessageMode ? (
-              <X size={17} aria-hidden="true" />
-            ) : (
-              <Plus size={17} aria-hidden="true" />
-            )}
-            <span>{addMessageMode ? "Cancel add message" : "Add message"}</span>
-          </button>
-
-          <div className={messageToolbarActions}>
-            {activeFilterSummary ? (
+          {selectionMode ? (
+            <>
+              <span className={messageToolbarSelectionCount}>
+                {selectedMessageCount} selected
+              </span>
               <button
-                className={messageToolbarSummary}
+                className={dangerButton}
                 type="button"
-                onClick={() => {
-                  restoreDisclosureFocusRef.current = true;
-                  setFiltersOpen(true);
-                }}
+                onClick={onDeleteSelected}
+                disabled={selectedMessageCount === 0}
               >
-                {activeFilterSummary}
+                <Trash2 size={17} aria-hidden="true" />
+                <span>Delete selected</span>
               </button>
-            ) : null}
-            <button
-              ref={filtersDisclosureRef}
-              className={[
-                secondaryButton,
-                messageToolbarDisclosure,
-                !filtersOpen && activeFilter !== "all"
-                  ? messageToolbarDisclosureActive
-                  : "",
-              ]
-                .filter(Boolean)
-                .join(" ")}
-              type="button"
-              aria-expanded={filtersOpen}
-              aria-controls={filtersId}
-              data-active={!filtersOpen && activeFilter !== "all" ? "true" : undefined}
-              onClick={() => setFiltersOpen((current) => !current)}
-            >
-              <Filter className={messageToolbarDisclosureIcon} size={16} aria-hidden="true" />
-              <span>Filters</span>
-            </button>
-          </div>
+              <button className={secondaryButton} type="button" onClick={onClearSelection}>
+                <X size={17} aria-hidden="true" />
+                <span>Clear selection</span>
+              </button>
+            </>
+          ) : (
+            <>
+              <button className={secondaryButton} type="button" onClick={onAddMessage}>
+                {addMessageMode ? (
+                  <X size={17} aria-hidden="true" />
+                ) : (
+                  <Plus size={17} aria-hidden="true" />
+                )}
+                <span>{addMessageMode ? "Cancel add message" : "Add message"}</span>
+              </button>
+              <button
+                className={secondaryButton}
+                type="button"
+                ref={selectButtonRef}
+                onClick={onStartSelection}
+                disabled={selectionDisabled}
+              >
+                <SquareCheck size={17} aria-hidden="true" />
+                <span>Select</span>
+              </button>
+            </>
+          )}
         </div>
-
-        {filtersOpen ? (
-          <div id={filtersId} className={messageToolbarFilters}>
-            <FilterBar
-              options={filterOptions}
-              activeFilter={activeFilter}
-              onFilterChange={onFilterChange}
-              disabled={addMessageMode}
-            />
-          </div>
-        ) : null}
+        <div className={messageToolbarFilters}>
+          <FilterBar
+            options={filterOptions}
+            activeFilter={activeFilter}
+            onFilterChange={onFilterChange}
+            disabled={addMessageMode || selectionMode}
+          />
+        </div>
       </div>
     </div>
   );
-}
-
-function getActiveFilterSummary(
-  filterOptions: readonly FitFilterOption[],
-  activeFilter: FitMessageFilter,
-): string | null {
-  if (activeFilter === "all") {
-    return null;
-  }
-
-  const option =
-    activeFilter === "issues" || activeFilter === "edited"
-      ? filterOptions.find((candidate) => candidate.kind === activeFilter)
-      : filterOptions.find(
-          (candidate) =>
-            candidate.kind === "message-type" &&
-            candidate.globalMessageNumber === activeFilter.globalMessageNumber,
-        );
-  if (!option) {
-    return null;
-  }
-
-  if (option.kind === "message-type") {
-    return `${option.messageName} ${option.count}`;
-  }
-
-  return `${option.label} ${option.count}`;
 }
