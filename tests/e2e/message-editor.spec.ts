@@ -8,6 +8,7 @@ test("message editor stages cancel and apply behavior", async ({ page }) => {
   await page.locator('input[type="file"]').setInputFiles(path.join(process.cwd(), "tests/fixtures/Activity.fit"));
 
   await expect(page.getByText("Activity.fit")).toBeVisible();
+  await page.getByRole("button", { name: "Filters" }).click();
   await page.getByRole("button", { name: /^record\d+$/ }).click();
 
   const editButton = page.getByRole("button", { name: "Edit record" }).first();
@@ -20,17 +21,17 @@ test("message editor stages cancel and apply behavior", async ({ page }) => {
   await expect(editButton).toBeFocused();
 
   await expect(page.getByText("1 edit")).toHaveCount(0);
-  await expect(page.getByRole("button", { name: /^Edited0$/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Edited\s*0$/ })).toBeVisible();
 
   await editButton.click();
   await page.getByLabel("heart_rate value 1").fill("127");
   await page.getByRole("button", { name: "Apply" }).click();
 
   await expect(page.getByText("1 edit")).toBeVisible();
-  await expect(page.getByRole("button", { name: /^Edited1$/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Edited\s*1$/ })).toBeVisible();
   await expect(page.locator('[data-testid="message-card"][data-edited="true"]').first()).toContainText("127");
 
-  await page.getByRole("button", { name: /^Edited1$/ }).click();
+  await page.getByRole("button", { name: /^Edited\s*1$/ }).click();
   await expect(page.getByTestId("message-card").first()).toHaveAttribute("data-edited", "true");
 
   await editButton.click();
@@ -51,7 +52,7 @@ test("message editor stages cancel and apply behavior", async ({ page }) => {
   await page.getByRole("button", { name: "Apply" }).click();
 
   await expect(page.getByText("1 issue")).toBeVisible();
-  await expect(page.getByRole("button", { name: /^Issues1$/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Issues\s*1$/ })).toBeVisible();
 
   await page.getByRole("button", { name: "Download" }).click();
   const issuesDialog = page.getByRole("dialog", { name: "Issues" });
@@ -138,7 +139,8 @@ test("duplicate message opens the editor, cancels without committing, and export
   await page.getByRole("button", { name: "Apply" }).click();
 
   await expect(page.getByText("1 issue")).toBeVisible();
-  await expect(page.getByRole("button", { name: /^Issues1$/ })).toBeVisible();
+  await page.getByRole("button", { name: "Filters" }).click();
+  await expect(page.getByRole("button", { name: /^Issues\s*1$/ })).toBeVisible();
 
   await page.getByRole("button", { name: "Download" }).click();
   const issuesDialog = page.getByRole("dialog", { name: "Issues" });
@@ -168,6 +170,7 @@ test("raw inserted message reopens without duplicating existing added fields", a
   await page.locator('input[type="file"]').setInputFiles(fixturePath);
 
   await expect(page.getByText("Activity.fit")).toBeVisible();
+  await page.getByRole("button", { name: "Filters" }).click();
   const insertTargetName = `Insert message between ${originalDocument.messages[0].messageName} and ${originalDocument.messages[1].messageName}`;
   await page.getByRole("button", { name: "Add message" }).click();
   await page.getByRole("button", { name: insertTargetName }).click();
@@ -475,6 +478,7 @@ test("message editor preserves scroll and keeps focus within the loaded view", a
   await page.locator('input[type="file"]').setInputFiles(path.join(process.cwd(), "tests/fixtures/Activity.fit"));
 
   await expect(page.getByText("Activity.fit")).toBeVisible();
+  await page.getByRole("button", { name: "Filters" }).click();
   await page.getByRole("button", { name: /^record\d+$/ }).click();
 
   const scroll = page.getByTestId("message-scroll");
@@ -514,7 +518,7 @@ test("message editor preserves scroll and keeps focus within the loaded view", a
   }).toMatch(/^(Edit record|Message list)$/);
   await expect(page.getByRole("button", { name: "Upload" })).not.toBeFocused();
 
-  await page.getByRole("button", { name: "Edited" }).click();
+  await page.getByRole("button", { name: /^Edited\s*\d+$/ }).click();
   await expect.poll(async () => {
     return scroll.evaluate((element) => element.scrollTop);
   }, {

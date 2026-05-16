@@ -77,6 +77,13 @@ Completed validation/export hardening slice:
 - Checksum/file issues remain warnings, representable invalid values remain warnings, and writer-impossible edit/insert shapes remain export-blocking.
 - Added unit coverage for warning/blocking partitioning, invalid insert anchors, and immediate-download gating.
 
+Completed message toolbar slice:
+
+- Moved `Add message` out of the header into a loaded-state message toolbar below the header.
+- Added a compact `Filters` disclosure with inline chips, collapsed-by-default behavior, active summary, and preserved add-mode filter restoration.
+- Kept the filter chip order/count semantics unchanged while disabling filter changes during raw insert mode.
+- Added focused e2e coverage for header simplification, collapsed default state, active filter summary, add-mode transition, filter persistence, and disclosure focus restoration.
+
 Known Phase 1 limits:
 
 - `scripts/generate-fit-profile.mjs` now has a fixture-driven canonical JSON input path; the committed generated profile artifact is still a small representative sample for tests and early UI work, not the full Garmin profile.
@@ -138,7 +145,8 @@ The first version is for technical users repairing activity data. It is not a fu
 - Main content uses one rounded surface/panel.
 - Message cards sit inside that panel and appear one after another in file order.
 - Do not introduce a sidebar, three-column layout, dashboard stat cards, record detail pane, grouping, charts, timelines, maps, or semantic zone tables in v1.
-- Loaded state starts with the filter bar, then the ordered message list.
+- Loaded state starts with the message toolbar, then the ordered message list.
+- The message toolbar owns collection-level actions such as adding messages and revealing filters; the header keeps file-level state and actions.
 - Message cards are quick-view entries. Detailed field editing happens only in a focused message editor panel opened from the message card edit icon-button.
 - Message cards show message type and timestamp if present, with no message index, source row, or field count.
 - The edit panel is rendered outside the virtualized message list so field editing remains stable while list rows mount and unmount.
@@ -295,16 +303,21 @@ Near-term architecture priorities:
 - Exact insert-mode and editor-panel visual treatment remains to be designed against the prototype.
 - The card-to-panel transition should be treated as progressive enhancement; the non-animated open/close flow must remain correct and accessible.
 
-## Filters
+## Message Toolbar and Filters
 
-- Filter bar appears below the header in loaded state.
-- Single wrapping row, no horizontal scroll.
+- Message toolbar appears below the header in loaded state.
+- Default toolbar state is compact: `Add message` plus a `Filters` disclosure control.
+- `Add message` changes to `Cancel add message` while insert mode is active.
+- Filters are collapsed by default and expand inline from the message toolbar.
+- A non-default active filter remains visible in the collapsed toolbar as a compact summary.
+- Expanded filters use a single wrapping row with no horizontal scroll.
 - Filter order: All, Issues, Edited, then message-type filters.
 - Issues filter shows messages containing at least one message/field issue.
 - All, Issues, and Edited always show counts, including zero, to avoid badge size changes.
 - Issues and Edited counts show messages counts, not issues or edits count.
 - Message-type filters are not shown for types with zero visible messages.
 - Filtering preserves file order.
+- Entering insert mode switches to `All` and suspends filter changes until insertion is completed or canceled.
 
 ## Validation and Issues
 

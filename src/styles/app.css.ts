@@ -182,7 +182,7 @@ export const editPill = style([
   }
 ]);
 
-export const filterWrap = style({
+export const messageToolbar = style({
   width: "100%",
   maxWidth: 1152,
   margin: "0 auto",
@@ -193,13 +193,73 @@ export const filterWrap = style({
   }
 });
 
-export const filterBar = style({
+export const messageToolbarSurface = style({
   display: "flex",
-  flexWrap: "wrap",
+  flexDirection: "column",
   gap: tokens.space.x8,
   borderRadius: tokens.radius.xxl,
   background: tokens.color.surfaceMuted,
   padding: tokens.space.x8
+});
+
+export const messageToolbarRow = style({
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: tokens.space.x8,
+  flexWrap: "wrap"
+});
+
+export const messageToolbarActions = style({
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "flex-end",
+  gap: tokens.space.x8,
+  flexWrap: "wrap",
+  marginLeft: "auto"
+});
+
+export const messageToolbarDisclosure = style({
+  selectors: {
+    "&[data-active=\"true\"]": {
+      borderColor: tokens.color.brand,
+      background: tokens.color.surfaceAccent,
+      color: tokens.color.brand
+    }
+  }
+});
+
+export const messageToolbarDisclosureActive = style({
+  borderColor: tokens.color.brand,
+  background: tokens.color.surfaceAccent,
+  color: tokens.color.brand
+});
+
+export const messageToolbarSummary = style({
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  minHeight: 42,
+  border: "1px solid transparent",
+  borderRadius: tokens.radius.pill,
+  padding: `${tokens.space.x9} ${tokens.space.x14}`,
+  background: tokens.color.surfaceAccent,
+  color: tokens.color.brand,
+  fontSize: 14,
+  fontWeight: 650,
+  transition: `background ${tokens.motion.fast}`,
+  selectors: { "&:hover": { background: tokens.color.surfaceAccentHover } }
+});
+
+export const messageToolbarFilters = style({
+  borderTop: `1px solid ${tokens.color.borderSubtle}`,
+  paddingTop: tokens.space.x8
+});
+
+export const filterBar = style({
+  display: "flex",
+  flexWrap: "wrap",
+  gap: tokens.space.x8
 });
 
 export const filterButton = style({
@@ -213,7 +273,13 @@ export const filterButton = style({
   fontSize: 14,
   fontWeight: 650,
   transition: `background ${tokens.motion.fast}, color ${tokens.motion.fast}`,
-  selectors: { "&:hover": { background: tokens.color.surfaceAccent } }
+  selectors: {
+    "&:hover": { background: tokens.color.surfaceAccent },
+    "&:disabled": {
+      cursor: "not-allowed",
+      opacity: 0.55
+    }
+  }
 });
 
 export const activeFilterButton = style({

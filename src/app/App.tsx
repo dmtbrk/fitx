@@ -4,9 +4,9 @@ import {
   useRef,
   useState,
 } from "react";
-import { FilterBar } from "../components/FilterBar";
 import { AddRawMessagePanel } from "../components/AddRawMessagePanel";
 import { MessageEditorPanel } from "../components/MessageEditorPanel";
+import { MessageToolbar } from "../components/MessageToolbar";
 import { MessageStream } from "../components/MessageStream";
 import { IssuesDialog } from "../components/IssuesDialog";
 import { StatusPanel } from "../components/StatusPanel";
@@ -81,24 +81,24 @@ function App() {
         loaded={Boolean(loaded)}
         issueCount={session.issueCount}
         editCount={session.editCount}
-        addMessageMode={session.rawInsertMode}
         onUpload={openUpload}
         onDownload={session.download}
         onOpenIssues={session.openIssues}
-        onAddMessage={() => {
-          if (session.rawInsertMode) {
-            session.cancelAddMessage();
-            return;
-          }
-
-          session.startAddMessage();
-        }}
         uploadButtonRef={uploadButtonRef}
       />
       {loaded && session.view ? (
-        <FilterBar
-          options={session.view.filterOptions}
+        <MessageToolbar
+          addMessageMode={session.rawInsertMode}
           activeFilter={session.activeFilter}
+          filterOptions={session.view.filterOptions}
+          onAddMessage={() => {
+            if (session.rawInsertMode) {
+              session.cancelAddMessage();
+              return;
+            }
+
+            session.startAddMessage();
+          }}
           onFilterChange={session.setActiveFilter}
         />
       ) : null}
