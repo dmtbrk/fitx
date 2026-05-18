@@ -9,6 +9,7 @@ Current UI direction:
 - Persist the two-row message toolbar: collection actions on row 1, always-visible filters on row 2.
 - Use a narrow selection-mode probe for visible filtered messages with bulk delete, while keeping filters locked during selection.
 - Keep add-message and selection modes mutually exclusive so the toolbar stays simple and predictable.
+- Introduce smarter repair tooling through focused workspaces outside the virtualized message list; GPS repair is the first approved capability.
 
 Completed in Phase 1:
 
@@ -119,7 +120,7 @@ The first version is for technical users repairing activity data. It is not a fu
 - Prefer a small bespoke UI system unless a library clearly helps without forcing a generic dashboard look.
 - UI implementation direction: bespoke visual components with targeted headless/accessibility/performance primitives where they materially reduce risk.
 - Browser support target: current major engines across desktop and mobile, not legacy browsers.
-- V1 focuses on manual editing first, not broader batch/visual GPS tools.
+- V1 starts from manual editing, then adds a focused GPS repair workflow that remains explicit, reviewable, and narrow in scope.
 - Users can edit existing fields.
 - Users can add fields to existing messages.
 - Users can add messages.
@@ -136,7 +137,8 @@ The first version is for technical users repairing activity data. It is not a fu
 - FIT definition messages are hidden from the repair/edit view but remain first-class in the internal document and writer.
 - Unknown message types are not issues by themselves.
 - The current POC UI/parser will be replaced where needed, not incrementally adapted if it conflicts with this plan.
-- Broader batch editing, visual editing, GPS import/alignment, and analysis tools are v2 candidates.
+- The first GPS repair slice uses MapLibre for rendering, a provider-neutral hosted routing boundary with GraphHopper first, preview-before-apply behavior, and position-only writes to existing `record` messages.
+- Broader batch editing, freeform visual route editing, GPS import/alignment, derived-metric repair, and analysis tools remain later candidates.
 
 ## Visual and UX Constraints
 
@@ -150,7 +152,8 @@ The first version is for technical users repairing activity data. It is not a fu
 - Header is flush with the page background.
 - Main content uses one rounded surface/panel.
 - Message cards sit inside that panel and appear one after another in file order.
-- Do not introduce a sidebar, three-column layout, dashboard stat cards, record detail pane, grouping, charts, timelines, maps, or semantic zone tables in v1.
+- Do not introduce a sidebar, three-column layout, dashboard stat cards, record detail pane, grouping, charts, timelines, or semantic zone tables in v1.
+- A focused map repair workspace is allowed outside the virtualized message list for the approved GPS repair flow.
 - Loaded state starts with the message toolbar, then the ordered message list.
 - The message toolbar owns collection-level actions such as adding messages and revealing filters; the header keeps file-level state and actions.
 - Message cards are quick-view entries. Detailed field editing happens only in a focused message editor panel opened from the message card edit icon-button.

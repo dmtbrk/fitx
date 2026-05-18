@@ -278,6 +278,19 @@ export function getEditsForMessage(
     : overlay.messages.get(messageId)?.edits.map((entry) => entry.edit) ?? [];
 }
 
+export function stageEditsIntoOverlay(
+  overlay: FitEditOverlay,
+  edits: readonly FitFieldValueEdit[],
+): FitEditOverlay {
+  let nextOverlay = overlay;
+
+  for (const edit of edits) {
+    nextOverlay = stageOverlayEdit(nextOverlay, edit);
+  }
+
+  return nextOverlay;
+}
+
 function stageOverlayEdit(
   overlay: FitEditOverlay,
   edit: FitFieldValueEdit,

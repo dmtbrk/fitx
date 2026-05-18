@@ -1,6 +1,8 @@
 import {
   type ChangeEvent,
   type DragEvent,
+  Suspense,
+  lazy,
   useLayoutEffect,
   useRef,
   useState,
@@ -22,6 +24,10 @@ import {
 
 const loadedDocumentScrollIds = new WeakMap<FitDocument, number>();
 let nextLoadedDocumentScrollId = 0;
+const GpsRepairPanel = lazy(async () => {
+  const module = await import("../components/GpsRepairPanel");
+  return { default: module.GpsRepairPanel };
+});
 
 function App() {
   const session = useFitEditorSession();
@@ -128,6 +134,7 @@ function App() {
             session.startAddMessage();
           }}
           onStartSelection={session.startSelectionMode}
+          onOpenGpsRepair={session.openGpsRepair}
           onDeleteSelected={session.deleteSelectedMessages}
           onClearSelection={session.clearSelectionMode}
           onFilterChange={session.setActiveFilter}
@@ -135,41 +142,63 @@ function App() {
       ) : null}
       <main className={content}>
         {loaded && session.view ? (
-          <MessageStream
-            messages={session.visibleMessages}
-            editedMessageIds={session.editedMessageIds}
-            selectionMode={session.selectionMode}
-            selectedMessageIds={session.selectedMessageIds}
-            insertMode={session.rawInsertMode}
-            outerSectionRef={messageListRef}
-            scrollResetKey={scrollResetKey}
-            onEditMessage={(messageId, focusTarget) => {
-              closeFocusTargetRef.current =
-                focusTarget ?? editButtonRefs.current.get(messageId) ?? null;
-              session.selectMessage(messageId);
-            }}
-            onDuplicateMessage={(messageId, focusTarget) => {
-              closeFocusTargetRef.current =
-                focusTarget ?? editButtonRefs.current.get(messageId) ?? null;
-              session.duplicateMessage(messageId);
-            }}
-            onDeleteMessage={(messageId) => {
-              session.deleteMessage(messageId);
-            }}
-            onToggleSelectedMessage={session.toggleSelectedMessage}
-            onSelectInsertPosition={(position, focusTarget) => {
-              closeFocusTargetRef.current = focusTarget ?? null;
-              session.selectInsertPosition(position);
-            }}
-            registerEditButtonRef={(messageId, element) => {
-              if (element) {
-                editButtonRefs.current.set(messageId, element);
-                return;
-              }
+          <>
+            {session.gpsRepairOpen ? (
+              <Suspense fallback={null}>
+                <GpsRepairPanel
+                  open={session.gpsRepairOpen}
+                  runs={session.gpsRepairRuns}
+                  routeSegments={session.gpsRouteSegments}
+                  selectedRunIndex={session.selectedGpsRepairRunIndex ?? 0}
+                  previewRoute={session.gpsRepairPreviewRoute?.points ?? null}
+                  status={session.gpsRepairStatus}
+                  errorMessage={session.gpsRepairErrorMessage}
+                  onClose={session.closeGpsRepair}
+                  onSelectRun={session.selectGpsRepairRun}
+                  onRequestPreview={() => {
+                    void session.requestGpsRepairPreview();
+                  }}
+                  onCancelPreview={session.cancelGpsRepairPreview}
+                  onApplyPreview={session.applyGpsRepairPreview}
+                />
+              </Suspense>
+            ) : null}
+            <MessageStream
+              messages={session.visibleMessages}
+              editedMessageIds={session.editedMessageIds}
+              selectionMode={session.selectionMode}
+              selectedMessageIds={session.selectedMessageIds}
+              insertMode={session.rawInsertMode}
+              outerSectionRef={messageListRef}
+              scrollResetKey={scrollResetKey}
+              onEditMessage={(messageId, focusTarget) => {
+                closeFocusTargetRef.current =
+                  focusTarget ?? editButtonRefs.current.get(messageId) ?? null;
+                session.selectMessage(messageId);
+              }}
+              onDuplicateMessage={(messageId, focusTarget) => {
+                closeFocusTargetRef.current =
+                  focusTarget ?? editButtonRefs.current.get(messageId) ?? null;
+                session.duplicateMessage(messageId);
+              }}
+              onDeleteMessage={(messageId) => {
+                session.deleteMessage(messageId);
+              }}
+              onToggleSelectedMessage={session.toggleSelectedMessage}
+              onSelectInsertPosition={(position, focusTarget) => {
+                closeFocusTargetRef.current = focusTarget ?? null;
+                session.selectInsertPosition(position);
+              }}
+              registerEditButtonRef={(messageId, element) => {
+                if (element) {
+                  editButtonRefs.current.set(messageId, element);
+                  return;
+                }
 
-              editButtonRefs.current.delete(messageId);
-            }}
-          />
+                editButtonRefs.current.delete(messageId);
+              }}
+            />
+          </>
         ) : (
           <StatusPanel
             state={session.state}

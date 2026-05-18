@@ -1,4 +1,4 @@
-import { Plus, SquareCheck, Trash2, X } from "lucide-react";
+import { MapPinned, Plus, SquareCheck, Trash2, X } from "lucide-react";
 import type { FitFilterOption, FitMessageFilter } from "../editor";
 import { FilterBar } from "./FilterBar";
 import {
@@ -21,6 +21,7 @@ interface MessageToolbarProps {
   readonly selectButtonRef?: (element: HTMLButtonElement | null) => void;
   readonly onAddMessage: () => void;
   readonly onStartSelection: () => void;
+  readonly onOpenGpsRepair: () => void;
   readonly onDeleteSelected: () => void;
   readonly onClearSelection: () => void;
   readonly onFilterChange: (filter: FitMessageFilter) => void;
@@ -36,6 +37,7 @@ export function MessageToolbar({
   selectButtonRef,
   onAddMessage,
   onStartSelection,
+  onOpenGpsRepair,
   onDeleteSelected,
   onClearSelection,
   onFilterChange,
@@ -82,6 +84,14 @@ export function MessageToolbar({
               >
                 <SquareCheck size={17} aria-hidden="true" />
                 <span>Select</span>
+              </button>
+              <button
+                className={secondaryButton}
+                type="button"
+                onClick={onOpenGpsRepair}
+              >
+                <MapPinned size={17} aria-hidden="true" />
+                <span>Map repair</span>
               </button>
             </>
           )}

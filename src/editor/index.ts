@@ -1,5 +1,7 @@
 export * from "./editSession";
 export * from "./editOverlay";
+export * from "./gpsRepair";
+export * from "./routing";
 export * from "./viewModel";
 export * from "./validation";
 export {
