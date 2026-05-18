@@ -111,13 +111,8 @@ export const stateBannerError = style({
 export const workspace = style({
   display: "grid",
   gap: tokens.space.x16,
-  gridTemplateColumns: "minmax(0, 1.8fr) minmax(280px, 0.82fr)",
+  gridTemplateColumns: "minmax(0, 1fr)",
   alignItems: "start",
-  "@media": {
-    "(max-width: 899px)": {
-      gridTemplateColumns: "minmax(0, 1fr)",
-    },
-  },
 });
 
 export const mapColumn = style({
@@ -128,7 +123,7 @@ export const mapColumn = style({
 
 export const mapShell = style({
   position: "relative",
-  minHeight: 520,
+  minHeight: 640,
   overflow: "hidden",
   borderRadius: tokens.radius.xxl,
   border: `1px solid ${tokens.color.borderDefault}`,
@@ -193,6 +188,46 @@ export const detailColumn = style({
   display: "grid",
   gap: tokens.space.x12,
   minWidth: 0,
+  gridTemplateColumns: "minmax(260px, 0.8fr) minmax(320px, 1.2fr)",
+  "@media": {
+    "(max-width: 799px)": {
+      gridTemplateColumns: "minmax(0, 1fr)",
+    },
+  },
+});
+
+export const detailDisclosure = style({
+  display: "grid",
+  gap: tokens.space.x12,
+  borderRadius: tokens.radius.xxl,
+  border: `1px solid ${tokens.color.borderSubtle}`,
+  background: tokens.color.surfaceMuted,
+  padding: tokens.space.x12,
+});
+
+export const detailDisclosureTrigger = style({
+  display: "flex",
+  alignItems: "center",
+  gap: tokens.space.x12,
+  width: "100%",
+  border: 0,
+  background: "transparent",
+  color: tokens.color.textPrimary,
+  fontSize: 14,
+  fontWeight: 650,
+  textAlign: "left",
+});
+
+export const detailDisclosureTriggerMeta = style({
+  marginLeft: "auto",
+  color: tokens.color.textSecondary,
+  fontSize: 13,
+  fontWeight: 600,
+});
+
+export const detailDisclosureBody = style({
+  borderTop: `1px solid ${tokens.color.borderSubtle}`,
+  paddingTop: tokens.space.x12,
 });
 
 export const card = style({

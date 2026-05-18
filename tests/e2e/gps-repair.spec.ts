@@ -15,6 +15,10 @@ test("map is primary and messages open only from the activity menu", async ({
   await expect(workspace).toBeVisible();
   await expect(workspace.locator("canvas")).toHaveCount(1);
   await expect(page.getByRole("region", { name: "Message list" })).toHaveCount(0);
+  const repairDisclosure = page.getByRole("button", { name: /Repair spans/ });
+  await expect(repairDisclosure).toHaveAttribute("aria-expanded", "false");
+  await repairDisclosure.click();
+  await expect(page.getByRole("region", { name: "Repair span list" })).toBeVisible();
 
   await openMessages(page);
 

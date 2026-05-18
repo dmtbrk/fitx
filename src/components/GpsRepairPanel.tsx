@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { ChevronDown } from "lucide-react";
 import maplibregl, {
   type GeoJSONSource,
   type Map as MapLibreMap,
@@ -10,6 +11,10 @@ import { getFitMessageTimestampLabel } from "../editor";
 import { primaryButton, secondaryButton } from "../styles/app.css";
 import {
   detailColumn,
+  detailDisclosure,
+  detailDisclosureBody,
+  detailDisclosureTrigger,
+  detailDisclosureTriggerMeta,
   emptyState,
   footer,
   footerActions,
@@ -102,6 +107,7 @@ export function GpsRepairPanel({
   onCancelPreview,
   onApplyPreview,
 }: GpsRepairPanelProps) {
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const selectedRun = runs[selectedRunIndex] ?? null;
@@ -280,80 +286,101 @@ export function GpsRepairPanel({
             Purple is known route data, red dashed segments are missing GPS spans, and green is the current preview.
           </p>
         </div>
+      </div>
 
-        <div className={detailColumn}>
-          <section aria-label="Repair spans">
-            <h3 className={sectionTitle}>Repair spans</h3>
-            {runs.length > 0 ? (
-              <ul className={list}>
-                {runs.map((run, runIndex) => {
-                  const isSelected = runIndex === selectedRunIndex;
-                  return (
-                    <li key={`${run.before.record.id}:${run.after.record.id}`}>
-                      <button
-                        className={[
-                          listItemButton,
-                          isSelected ? listItemButtonSelected : "",
-                        ]
-                          .filter(Boolean)
-                          .join(" ")}
-                        type="button"
-                        onClick={() => onSelectRun(runIndex)}
-                      >
-                        <div className={listItemHeader}>
-                          <span className={listItemTitle}>
-                            Span {runIndex + 1}
-                            {isSelected ? <span className={metricPill}>selected</span> : null}
-                          </span>
-                          <span className={listItemMeta}>
-                            {run.missingRecords.length} records
+      <section className={detailDisclosure} aria-label="Repair spans">
+        <button
+          className={detailDisclosureTrigger}
+          type="button"
+          aria-expanded={detailsOpen}
+          onClick={() => setDetailsOpen((current) => !current)}
+        >
+          <span>Repair spans ({runs.length})</span>
+          <span className={detailDisclosureTriggerMeta}>
+            {selectedRun
+              ? `Selected: Span ${selectedRunIndex + 1}, ${selectedMissingRecords.length} records`
+              : "No span selected"}
+          </span>
+          <ChevronDown size={17} aria-hidden="true" />
+        </button>
+
+        {detailsOpen ? (
+          <div className={detailDisclosureBody}>
+            <div className={detailColumn}>
+              <section aria-label="Repair span list">
+                <h3 className={sectionTitle}>Repair spans</h3>
+                {runs.length > 0 ? (
+                  <ul className={list}>
+                    {runs.map((run, runIndex) => {
+                      const isSelected = runIndex === selectedRunIndex;
+                      return (
+                        <li key={`${run.before.record.id}:${run.after.record.id}`}>
+                          <button
+                            className={[
+                              listItemButton,
+                              isSelected ? listItemButtonSelected : "",
+                            ]
+                              .filter(Boolean)
+                              .join(" ")}
+                            type="button"
+                            onClick={() => onSelectRun(runIndex)}
+                          >
+                            <div className={listItemHeader}>
+                              <span className={listItemTitle}>
+                                Span {runIndex + 1}
+                                {isSelected ? <span className={metricPill}>selected</span> : null}
+                              </span>
+                              <span className={listItemMeta}>
+                                {run.missingRecords.length} records
+                              </span>
+                            </div>
+                            <div className={listItemMeta}>{formatRunLabel(run)}</div>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                ) : (
+                  <div className={emptyState}>No bounded missing GPS spans were found.</div>
+                )}
+              </section>
+
+              <section aria-label="Missing records">
+                <h3 className={sectionTitle}>Selected span</h3>
+                {selectedMissingRecords.length > 0 ? (
+                  <ul className={missingList}>
+                    {selectedMissingRecords.map((missingRecord) => (
+                      <li key={missingRecord.record.id} className={missingItem}>
+                        <div className={missingItemHeader}>
+                          <h4 className={missingItemTitle}>
+                            {getFitMessageTimestampLabel(missingRecord.record) ??
+                              `${missingRecord.timestampSeconds}s`}
+                          </h4>
+                          <span className={missingItemMeta}>
+                            Record {missingRecord.record.order + 1}
                           </span>
                         </div>
-                        <div className={listItemMeta}>{formatRunLabel(run)}</div>
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            ) : (
-              <div className={emptyState}>No bounded missing GPS spans were found.</div>
-            )}
-          </section>
-
-          <section aria-label="Missing records">
-            <h3 className={sectionTitle}>Selected span</h3>
-            {selectedMissingRecords.length > 0 ? (
-              <ul className={missingList}>
-                {selectedMissingRecords.map((missingRecord) => (
-                  <li key={missingRecord.record.id} className={missingItem}>
-                    <div className={missingItemHeader}>
-                      <h4 className={missingItemTitle}>
-                        {getFitMessageTimestampLabel(missingRecord.record) ??
-                          `${missingRecord.timestampSeconds}s`}
-                      </h4>
-                      <span className={missingItemMeta}>
-                        Record {missingRecord.record.order + 1}
-                      </span>
-                    </div>
-                    <div className={missingFlags}>
-                      {missingRecord.missingLatitude ? (
-                        <span className={missingFlag}>Latitude missing</span>
-                      ) : null}
-                      {missingRecord.missingLongitude ? (
-                        <span className={`${missingFlag} ${missingFlagMuted}`}>
-                          Longitude missing
-                        </span>
-                      ) : null}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <div className={emptyState}>Select a repairable span to inspect its records.</div>
-            )}
-          </section>
-        </div>
-      </div>
+                        <div className={missingFlags}>
+                          {missingRecord.missingLatitude ? (
+                            <span className={missingFlag}>Latitude missing</span>
+                          ) : null}
+                          {missingRecord.missingLongitude ? (
+                            <span className={`${missingFlag} ${missingFlagMuted}`}>
+                              Longitude missing
+                            </span>
+                          ) : null}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <div className={emptyState}>Select a repairable span to inspect its records.</div>
+                )}
+              </section>
+            </div>
+          </div>
+        ) : null}
+      </section>
 
       <footer className={footer}>
         <p className={footerCopy}>
