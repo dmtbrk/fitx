@@ -7,10 +7,12 @@ Implementation in progress. Phase 1 risk-first FIT core slice is complete; the c
 Current UI direction:
 
 - Make the loaded state map-first: the large activity map is the default workspace, and raw messages live in a secondary surface opened explicitly by the user.
+- Keep the loaded workspace aligned with the same page width as the header.
 - Keep the two-row message toolbar inside the secondary Messages surface: collection actions on row 1, always-visible filters on row 2.
 - Use a narrow selection-mode probe for visible filtered messages with bulk delete, while keeping filters locked during selection.
 - Keep add-message and selection modes mutually exclusive so the toolbar stays simple and predictable.
 - Introduce smarter repair tooling through focused workspaces outside the virtualized message list; GPS repair is the first approved capability.
+- Keep selected GPS-span records secondary: hidden by default and virtualized only when opened.
 
 Completed in Phase 1:
 
@@ -92,6 +94,13 @@ Completed message toolbar slice:
 - Kept the filter chip order/count semantics unchanged while disabling filter changes during raw insert mode.
 - Added focused e2e coverage for header simplification, collapsed default state, active filter summary, add-mode transition, filter persistence, and disclosure focus restoration.
 
+Current map workspace cleanup slice:
+
+- Re-align loaded content width with the header width.
+- Reduce GPS workspace prose to short labels and changing status only.
+- Keep selected-span records hidden by default and virtualized on demand.
+- Restore visible map attribution and replace prose legend copy with compact visual legend markers.
+
 Known Phase 1 limits:
 
 - `scripts/generate-fit-profile.mjs` now has a fixture-driven canonical JSON input path; the committed generated profile artifact is still a small representative sample for tests and early UI work, not the full Garmin profile.
@@ -156,6 +165,8 @@ The first version is for technical users repairing activity data. It is not a fu
 - Do not introduce a sidebar, three-column layout, dashboard stat cards, record detail pane, grouping, charts, timelines, or semantic zone tables in v1.
 - A focused map repair workspace is allowed outside the virtualized message list for the approved GPS repair flow.
 - Loaded state starts with the map-first activity workspace.
+- The loaded activity workspace remains horizontally aligned with the app header.
+- Selected-span record inspection stays secondary to the map: collapsed by default and virtualized when opened.
 - Raw messages are hidden by default and open from an explicit secondary Messages surface.
 - The message toolbar owns collection-level actions such as adding messages and revealing filters inside that Messages surface; the header keeps file-level state and actions.
 - Message cards are quick-view entries. Detailed field editing happens only in a focused message editor panel opened from the message card edit icon-button.

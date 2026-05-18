@@ -332,7 +332,7 @@ export const filterCount = style({
 
 export const content = style({
   width: "100%",
-  maxWidth: 1440,
+  maxWidth: 1152,
   margin: "0 auto",
   padding: `0 ${tokens.space.x16} ${tokens.space.x56}`,
   "@media": {

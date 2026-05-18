@@ -1,14 +1,26 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { ChevronDown } from "lucide-react";
 import maplibregl, {
   type GeoJSONSource,
   type Map as MapLibreMap,
   type StyleSpecification,
 } from "maplibre-gl";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import "maplibre-gl/dist/maplibre-gl.css";
 import type { FitGpsRepairRun, FitRoutePoint } from "../editor";
 import { getFitMessageTimestampLabel } from "../editor";
-import { primaryButton, secondaryButton } from "../styles/app.css";
+import {
+  primaryButton,
+  secondaryButton,
+  virtualList,
+  virtualRow,
+} from "../styles/app.css";
 import {
   detailColumn,
   detailDisclosure,
@@ -21,7 +33,6 @@ import {
   footerCopy,
   header,
   headerActions,
-  headerCopy,
   headerMeta,
   list,
   listItemButton,
@@ -35,7 +46,13 @@ import {
   mapBadgeWarning,
   mapCanvas,
   mapColumn,
-  mapFootnote,
+  mapLegend,
+  mapLegendItem,
+  mapLegendLabel,
+  mapLegendMarker,
+  mapLegendMarkerKnown,
+  mapLegendMarkerMissing,
+  mapLegendMarkerPreview,
   mapShell,
   metricPill,
   metricsRow,
@@ -46,10 +63,10 @@ import {
   missingItemHeader,
   missingItemMeta,
   missingItemTitle,
-  missingList,
   panel,
-  sectionCopy,
   sectionTitle,
+  selectedSpanScroll,
+  selectedSpanList,
   stateBanner,
   stateBannerError,
   stateBannerLoading,
@@ -108,9 +125,12 @@ export function GpsRepairPanel({
   onApplyPreview,
 }: GpsRepairPanelProps) {
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [recordsOpen, setRecordsOpen] = useState(false);
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
+  const selectedSpanScrollRef = useRef<HTMLDivElement | null>(null);
   const selectedRun = runs[selectedRunIndex] ?? null;
+  const mapStyleUrl = resolveMapStyleUrl();
   const gapSegments = useMemo(
     () =>
       runs.map((run) => [
@@ -121,15 +141,21 @@ export function GpsRepairPanel({
   );
   const routeMetrics = useMemo(
     () => ({
-      segmentCount: routeSegments.length,
       knownPointCount: routeSegments.reduce(
         (total, segment) => total + segment.length,
         0,
       ),
       previewPointCount: previewRoute?.length ?? 0,
-    }),
+      }),
     [previewRoute, routeSegments],
   );
+  const selectedSpanVirtualizer = useVirtualizer({
+    count: selectedRun?.missingRecords.length ?? 0,
+    getScrollElement: () => selectedSpanScrollRef.current,
+    getItemKey: (index) => selectedRun?.missingRecords[index]?.record.id ?? index,
+    estimateSize: () => 86,
+    overscan: 4,
+  });
   const routeSegmentsRef = useRef(routeSegments);
   const gapSegmentsRef = useRef(gapSegments);
   const previewRouteRef = useRef(previewRoute);
@@ -144,10 +170,10 @@ export function GpsRepairPanel({
 
     const map = new maplibregl.Map({
       container: mapContainerRef.current,
-      style: resolveMapStyle(),
+      style: mapStyleUrl ?? EMPTY_STYLE,
       center: [0, 0],
       zoom: 1,
-      attributionControl: false,
+      attributionControl: { compact: false },
     });
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
     map.on("load", () => {
@@ -220,6 +246,21 @@ export function GpsRepairPanel({
     fitMapToData(map, routeSegments, gapSegments, previewRoute);
   }, [gapSegments, previewRoute, routeSegments]);
 
+  useEffect(() => {
+    if (!detailsOpen) {
+      if (recordsOpen) {
+        setRecordsOpen(false);
+      }
+      return;
+    }
+
+    if (!recordsOpen) {
+      return;
+    }
+
+    selectedSpanScrollRef.current?.scrollTo({ top: 0 });
+  }, [detailsOpen, recordsOpen, selectedRunIndex]);
+
   if (!open) {
     return null;
   }
@@ -238,10 +279,7 @@ export function GpsRepairPanel({
     <section className={panel} aria-label="GPS repair workspace">
       <header className={header}>
         <div className={titleWrap}>
-          <h2 className={title}>GPS repair workspace</h2>
-          <p className={headerCopy}>
-            Keep the route map in view while you inspect missing spans, preview a routed correction, and apply the edit.
-          </p>
+          <h2 className={title}>GPS repair</h2>
           <div className={headerMeta}>
             <span className={statusPillClass}>{statusLabel}</span>
             <span>
@@ -254,7 +292,7 @@ export function GpsRepairPanel({
 
       {status === "loading" ? (
         <div className={`${stateBanner} ${stateBannerLoading}`}>
-          Building a road-following preview for the selected span.
+          Building preview.
         </div>
       ) : null}
       {status === "error" ? (
@@ -276,15 +314,30 @@ export function GpsRepairPanel({
                 {routeMetrics.previewPointCount} preview points
               </span>
             </div>
-            <div className={mapFootnote}>
-              <span>Known route</span>
-              <span>Missing span</span>
-              <span>Preview repair</span>
-            </div>
+            <ul className={mapLegend} aria-label="Map legend">
+              <li className={mapLegendItem}>
+                <span
+                  className={`${mapLegendMarker} ${mapLegendMarkerKnown}`}
+                  aria-hidden="true"
+                />
+                <span className={mapLegendLabel}>Known</span>
+              </li>
+              <li className={mapLegendItem}>
+                <span
+                  className={`${mapLegendMarker} ${mapLegendMarkerMissing}`}
+                  aria-hidden="true"
+                />
+                <span className={mapLegendLabel}>Gap</span>
+              </li>
+              <li className={mapLegendItem}>
+                <span
+                  className={`${mapLegendMarker} ${mapLegendMarkerPreview}`}
+                  aria-hidden="true"
+                />
+                <span className={mapLegendLabel}>Preview</span>
+              </li>
+            </ul>
           </div>
-          <p className={sectionCopy}>
-            Purple is known route data, red dashed segments are missing GPS spans, and green is the current preview.
-          </p>
         </div>
       </div>
 
@@ -295,7 +348,7 @@ export function GpsRepairPanel({
           aria-expanded={detailsOpen}
           onClick={() => setDetailsOpen((current) => !current)}
         >
-          <span>Repair spans ({runs.length})</span>
+          <span>Spans ({runs.length})</span>
           <span className={detailDisclosureTriggerMeta}>
             {selectedRun
               ? `Selected: Span ${selectedRunIndex + 1}, ${selectedMissingRecords.length} records`
@@ -308,7 +361,7 @@ export function GpsRepairPanel({
           <div className={detailDisclosureBody}>
             <div className={detailColumn}>
               <section aria-label="Repair span list">
-                <h3 className={sectionTitle}>Repair spans</h3>
+                <h3 className={sectionTitle}>Spans</h3>
                 {runs.length > 0 ? (
                   <ul className={list}>
                     {runs.map((run, runIndex) => {
@@ -345,37 +398,78 @@ export function GpsRepairPanel({
                 )}
               </section>
 
-              <section aria-label="Missing records">
-                <h3 className={sectionTitle}>Selected span</h3>
-                {selectedMissingRecords.length > 0 ? (
-                  <ul className={missingList}>
-                    {selectedMissingRecords.map((missingRecord) => (
-                      <li key={missingRecord.record.id} className={missingItem}>
-                        <div className={missingItemHeader}>
-                          <h4 className={missingItemTitle}>
-                            {getFitMessageTimestampLabel(missingRecord.record) ??
-                              `${missingRecord.timestampSeconds}s`}
-                          </h4>
-                          <span className={missingItemMeta}>
-                            Record {missingRecord.record.order + 1}
-                          </span>
-                        </div>
-                        <div className={missingFlags}>
-                          {missingRecord.missingLatitude ? (
-                            <span className={missingFlag}>Latitude missing</span>
-                          ) : null}
-                          {missingRecord.missingLongitude ? (
-                            <span className={`${missingFlag} ${missingFlagMuted}`}>
-                              Longitude missing
-                            </span>
-                          ) : null}
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <div className={emptyState}>Select a repairable span to inspect its records.</div>
-                )}
+              <section className={detailDisclosure} aria-label="Selected span records">
+                <button
+                  className={detailDisclosureTrigger}
+                  type="button"
+                  aria-expanded={recordsOpen}
+                  onClick={() => setRecordsOpen((current) => !current)}
+                >
+                  <span>Records</span>
+                  <span className={detailDisclosureTriggerMeta}>
+                    {selectedRun
+                      ? `${selectedMissingRecords.length} records`
+                      : "No span selected"}
+                  </span>
+                  <ChevronDown size={17} aria-hidden="true" />
+                </button>
+
+                {recordsOpen ? (
+                  <div className={detailDisclosureBody}>
+                    {selectedMissingRecords.length > 0 ? (
+                      <div ref={selectedSpanScrollRef} className={selectedSpanScroll}>
+                        <ul
+                          className={`${virtualList} ${selectedSpanList}`}
+                          aria-label="Selected span records"
+                          style={{ height: selectedSpanVirtualizer.getTotalSize() }}
+                        >
+                          {selectedSpanVirtualizer.getVirtualItems().map((item) => {
+                            const missingRecord = selectedMissingRecords[item.index];
+                            if (!missingRecord) {
+                              return null;
+                            }
+
+                            return (
+                              <li
+                                key={missingRecord.record.id}
+                                ref={selectedSpanVirtualizer.measureElement}
+                                className={virtualRow}
+                                data-index={item.index}
+                                style={{ transform: `translateY(${item.start}px)` }}
+                              >
+                                <div className={missingItem}>
+                                  <div className={missingItemHeader}>
+                                    <h4 className={missingItemTitle}>
+                                      {getFitMessageTimestampLabel(missingRecord.record) ??
+                                        `${missingRecord.timestampSeconds}s`}
+                                    </h4>
+                                    <span className={missingItemMeta}>
+                                      Record {missingRecord.record.order + 1}
+                                    </span>
+                                  </div>
+                                  <div className={missingFlags}>
+                                    {missingRecord.missingLatitude ? (
+                                      <span className={missingFlag}>Latitude missing</span>
+                                    ) : null}
+                                    {missingRecord.missingLongitude ? (
+                                      <span className={`${missingFlag} ${missingFlagMuted}`}>
+                                        Longitude missing
+                                      </span>
+                                    ) : null}
+                                  </div>
+                                </div>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </div>
+                    ) : (
+                      <div className={emptyState}>
+                        Select a repairable span to inspect its records.
+                      </div>
+                    )}
+                  </div>
+                ) : null}
               </section>
             </div>
           </div>
@@ -384,9 +478,7 @@ export function GpsRepairPanel({
 
       <footer className={footer}>
         <p className={footerCopy}>
-          {status === "preview"
-            ? "Preview is ready. Apply stages GPS edits only."
-            : "No GPS edits are staged until you apply a preview."}
+          {status === "preview" ? "Preview ready." : "No preview staged."}
         </p>
         <div className={footerActions}>
           <button
@@ -466,14 +558,14 @@ function fitMapToData(
   map.fitBounds(bounds, { padding: 40, duration: 0, maxZoom: 16 });
 }
 
-function resolveMapStyle(): StyleSpecification | string {
+function resolveMapStyleUrl(): string | null {
   const styleUrl = (
     import.meta as ImportMeta & {
       readonly env?: { readonly VITE_MAP_STYLE_URL?: string };
     }
   ).env?.VITE_MAP_STYLE_URL?.trim();
 
-  return styleUrl && styleUrl.length > 0 ? styleUrl : EMPTY_STYLE;
+  return styleUrl && styleUrl.length > 0 ? styleUrl : null;
 }
 
 function getStatusLabel(status: GpsRepairStatus, errorMessage: string | null): string {

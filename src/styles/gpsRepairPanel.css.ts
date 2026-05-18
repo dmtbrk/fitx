@@ -44,14 +44,6 @@ export const title = style({
   lineHeight: 1.2,
 });
 
-export const headerCopy = style({
-  margin: 0,
-  color: tokens.color.textSecondary,
-  fontSize: 14,
-  lineHeight: 1.5,
-  maxWidth: 720,
-});
-
 export const headerMeta = style({
   display: "flex",
   flexWrap: "wrap",
@@ -170,18 +162,60 @@ export const mapBadgeWarning = style({
   color: tokens.color.textWarning,
 });
 
-export const mapFootnote = style({
+export const mapLegend = style({
   position: "absolute",
   right: tokens.space.x12,
   bottom: tokens.space.x12,
   left: tokens.space.x12,
   display: "flex",
-  justifyContent: "space-between",
+  alignItems: "center",
+  justifyContent: "flex-start",
   gap: tokens.space.x8,
   flexWrap: "wrap",
-  color: tokens.color.textTertiary,
+  margin: 0,
+  padding: 0,
+  listStyle: "none",
+});
+
+export const mapLegendItem = style({
+  display: "inline-flex",
+  alignItems: "center",
+  gap: tokens.space.x6,
+  borderRadius: tokens.radius.pill,
+  padding: `${tokens.space.x4} ${tokens.space.x8}`,
+  background: "rgba(255, 255, 255, 0.84)",
+  color: tokens.color.textSecondary,
   fontSize: 12,
-  fontWeight: 600,
+  fontWeight: 650,
+  backdropFilter: "blur(8px)",
+});
+
+export const mapLegendMarker = style({
+  width: 16,
+  height: 0,
+  borderTopWidth: 3,
+  borderTopStyle: "solid",
+  borderTopColor: "currentColor",
+  flexShrink: 0,
+});
+
+export const mapLegendMarkerKnown = style({
+  color: "#6750a4",
+});
+
+export const mapLegendMarkerMissing = style({
+  color: "#ba1a1a",
+  borderTopStyle: "dashed",
+});
+
+export const mapLegendMarkerPreview = style({
+  color: "#006c4c",
+});
+
+export const mapLegendLabel = style({
+  fontSize: 11,
+  fontWeight: 650,
+  lineHeight: 1.2,
 });
 
 export const detailColumn = style({
@@ -245,13 +279,6 @@ export const sectionTitle = style({
   fontSize: 15,
   fontWeight: 650,
   lineHeight: 1.35,
-});
-
-export const sectionCopy = style({
-  margin: 0,
-  color: tokens.color.textSecondary,
-  fontSize: 13,
-  lineHeight: 1.45,
 });
 
 export const metricsRow = style({
@@ -330,9 +357,13 @@ export const listItemMeta = style({
   lineHeight: 1.35,
 });
 
-export const missingList = style({
-  display: "grid",
-  gap: tokens.space.x8,
+export const selectedSpanScroll = style({
+  maxHeight: "min(48vh, 360px)",
+  overflow: "auto",
+  paddingRight: tokens.space.x4,
+});
+
+export const selectedSpanList = style({
   margin: 0,
   padding: 0,
   listStyle: "none",
