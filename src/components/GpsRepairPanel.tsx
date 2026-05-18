@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, type ReactNode } from "react";
 import maplibregl, {
   type GeoJSONSource,
   type Map as MapLibreMap,
@@ -67,6 +67,7 @@ export interface GpsRepairPanelProps {
   readonly status: GpsRepairStatus;
   readonly errorMessage: string | null;
   readonly onClose: () => void;
+  readonly activityMenuSlot?: ReactNode;
   readonly onSelectRun: (runIndex: number) => void;
   readonly onRequestPreview: () => void;
   readonly onCancelPreview: () => void;
@@ -95,7 +96,7 @@ export function GpsRepairPanel({
   previewRoute,
   status,
   errorMessage,
-  onClose,
+  activityMenuSlot,
   onSelectRun,
   onRequestPreview,
   onCancelPreview,
@@ -231,20 +232,18 @@ export function GpsRepairPanel({
     <section className={panel} aria-label="GPS repair workspace">
       <header className={header}>
         <div className={titleWrap}>
-          <h2 className={title}>GPS repair</h2>
+          <h2 className={title}>GPS repair workspace</h2>
           <p className={headerCopy}>
-            Review missing GPS spans, preview a routed correction, then apply it to the existing records.
+            Keep the route map in view while you inspect missing spans, preview a routed correction, and apply the edit.
           </p>
           <div className={headerMeta}>
             <span className={statusPillClass}>{statusLabel}</span>
-            <span>{runs.length} repairable {runs.length === 1 ? "span" : "spans"}</span>
+            <span>
+              {runs.length} repairable {runs.length === 1 ? "span" : "spans"}
+            </span>
           </div>
         </div>
-        <div className={headerActions}>
-          <button className={secondaryButton} type="button" onClick={onClose}>
-            Close
-          </button>
-        </div>
+        {activityMenuSlot ? <div className={headerActions}>{activityMenuSlot}</div> : null}
       </header>
 
       {status === "loading" ? (

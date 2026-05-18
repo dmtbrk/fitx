@@ -2,12 +2,14 @@ import { expect, test } from "@playwright/test";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { parseFitDocument } from "../../src/fit";
+import { closeMessages, openMessages } from "./helpers";
 
 test("message editor stages cancel and apply behavior", async ({ page }) => {
   await page.goto("/");
   await page.locator('input[type="file"]').setInputFiles(path.join(process.cwd(), "tests/fixtures/Activity.fit"));
 
   await expect(page.getByText("Activity.fit")).toBeVisible();
+  await openMessages(page);
   await page.getByRole("button", { name: /^record\d+$/ }).click();
 
   const editButton = page.getByRole("button", { name: "Edit record" }).first();
@@ -53,6 +55,7 @@ test("message editor stages cancel and apply behavior", async ({ page }) => {
   await expect(page.getByText("1 issue")).toBeVisible();
   await expect(page.getByRole("button", { name: /^Issues\s*1$/ })).toBeVisible();
 
+  await closeMessages(page);
   await page.getByRole("button", { name: "Download" }).click();
   const issuesDialog = page.getByRole("dialog", { name: "Issues" });
   await expect(issuesDialog).toBeVisible();
@@ -74,6 +77,7 @@ test("duplicate message opens the editor, cancels without committing, and export
   await page.locator('input[type="file"]').setInputFiles(fixturePath);
 
   await expect(page.getByText("Activity.fit")).toBeVisible();
+  await openMessages(page);
 
   const sourceCard = page.getByTestId("message-card").first();
   const actionButton = sourceCard.getByRole("button", { name: /actions$/ });
@@ -114,6 +118,7 @@ test("duplicate message opens the editor, cancels without committing, and export
   await expect(duplicateEditorInput).toHaveValue(nextDuplicateValue);
   await page.getByRole("button", { name: "Apply" }).click();
 
+  await closeMessages(page);
   const downloadPromise = page.waitForEvent("download");
   await page.getByRole("button", { name: "Download" }).click();
   const download = await downloadPromise;
@@ -131,6 +136,7 @@ test("duplicate message opens the editor, cancels without committing, and export
   expect(exportedDocument.messages[1]?.messageName).toBe(sourceMessageName);
   expect(exportedDocument.messages[1]?.fields[0]?.value).toBe(Number(nextDuplicateValue));
 
+  await openMessages(page);
   await duplicatedEditButton.click();
   await expect(duplicateDialog).toBeVisible();
   await expect(duplicateEditorInput).toHaveValue(nextDuplicateValue);
@@ -140,6 +146,7 @@ test("duplicate message opens the editor, cancels without committing, and export
   await expect(page.getByText("1 issue")).toBeVisible();
   await expect(page.getByRole("button", { name: /^Issues\s*1$/ })).toBeVisible();
 
+  await closeMessages(page);
   await page.getByRole("button", { name: "Download" }).click();
   const issuesDialog = page.getByRole("dialog", { name: "Issues" });
   await expect(issuesDialog).toBeVisible();
@@ -168,6 +175,7 @@ test("raw inserted message reopens without duplicating existing added fields", a
   await page.locator('input[type="file"]').setInputFiles(fixturePath);
 
   await expect(page.getByText("Activity.fit")).toBeVisible();
+  await openMessages(page);
   const insertTargetName = `Insert message between ${originalDocument.messages[0].messageName} and ${originalDocument.messages[1].messageName}`;
   await page.getByRole("button", { name: "Add message" }).click();
   await page.getByRole("button", { name: insertTargetName }).click();
@@ -202,6 +210,7 @@ test("raw inserted message reopens without duplicating existing added fields", a
   await expect(rawValueInput).toHaveValue("43");
   await page.getByRole("button", { name: "Apply" }).click();
 
+  await closeMessages(page);
   const downloadPromise = page.waitForEvent("download");
   await page.getByRole("button", { name: "Download" }).click();
   const download = await downloadPromise;
@@ -235,6 +244,7 @@ test("raw add message cancels without committing and then inserts between messag
   await page.locator('input[type="file"]').setInputFiles(fixturePath);
 
   await expect(page.getByText("Activity.fit")).toBeVisible();
+  await openMessages(page);
   const insertTargetName = `Insert message between ${originalDocument.messages[0].messageName} and ${originalDocument.messages[1].messageName}`;
   await page.getByRole("button", { name: "Add message" }).click();
   const scroll = page.getByTestId("message-scroll");
@@ -362,6 +372,7 @@ test("raw add message cancels without committing and then inserts between messag
     originalDocument.messages[1].messageName,
   ]);
 
+  await closeMessages(page);
   const downloadPromise = page.waitForEvent("download");
   await page.getByRole("button", { name: "Download" }).click();
   const download = await downloadPromise;
@@ -401,6 +412,7 @@ test("raw add message validation issues block commit", async ({ page }) => {
   await page.locator('input[type="file"]').setInputFiles(fixturePath);
 
   await expect(page.getByText("Activity.fit")).toBeVisible();
+  await openMessages(page);
   const insertTargetName = `Insert message between ${originalDocument.messages[0].messageName} and ${originalDocument.messages[1].messageName}`;
   await page.getByRole("button", { name: "Add message" }).click();
   const scroll = page.getByTestId("message-scroll");
@@ -434,6 +446,7 @@ test("message deletion confirms, updates counts, restores focus, and exports wit
   await page.locator('input[type="file"]').setInputFiles(path.join(process.cwd(), "tests/fixtures/Activity.fit"));
 
   await expect(page.getByText("Activity.fit")).toBeVisible();
+  await openMessages(page);
 
   const deletedCard = page.getByTestId("message-card").first();
   const deletedMessageName = await deletedCard.getAttribute("data-message-name");
@@ -450,6 +463,7 @@ test("message deletion confirms, updates counts, restores focus, and exports wit
   await expect(page.getByTestId("message-card").filter({ hasText: deletedMessageName ?? "" })).toHaveCount(0);
   await expect(page.getByLabel("Message list")).toBeFocused();
 
+  await closeMessages(page);
   const downloadPromise = page.waitForEvent("download");
   await page.getByRole("button", { name: "Download" }).click();
   const download = await downloadPromise;
@@ -475,6 +489,7 @@ test("message editor preserves scroll and keeps focus within the loaded view", a
   await page.locator('input[type="file"]').setInputFiles(path.join(process.cwd(), "tests/fixtures/Activity.fit"));
 
   await expect(page.getByText("Activity.fit")).toBeVisible();
+  await openMessages(page);
   await page.getByRole("button", { name: /^record\d+$/ }).click();
 
   const scroll = page.getByTestId("message-scroll");
@@ -512,7 +527,7 @@ test("message editor preserves scroll and keeps focus within the loaded view", a
     message: "focus should remain inside the loaded view after applying an edit",
     timeout: 5000,
   }).toMatch(/^(Edit record|Message list)$/);
-  await expect(page.getByRole("button", { name: "Upload" })).not.toBeFocused();
+  await expect(page.getByRole("dialog", { name: "Messages" })).toBeVisible();
 
   await page.getByRole("button", { name: /^Edited\s*\d+$/ }).click();
   await expect.poll(async () => {
@@ -530,5 +545,5 @@ test("message editor preserves scroll and keeps focus within the loaded view", a
   await page.getByRole("button", { name: "Apply" }).click();
 
   await expect(page.getByLabel("Message list")).toBeFocused();
-  await expect(page.getByRole("button", { name: "Upload" })).not.toBeFocused();
+  await expect(page.getByRole("dialog", { name: "Messages" })).toBeVisible();
 });

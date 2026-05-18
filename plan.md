@@ -6,7 +6,8 @@ Implementation in progress. Phase 1 risk-first FIT core slice is complete; the c
 
 Current UI direction:
 
-- Persist the two-row message toolbar: collection actions on row 1, always-visible filters on row 2.
+- Make the loaded state map-first: the large activity map is the default workspace, and raw messages live in a secondary surface opened explicitly by the user.
+- Keep the two-row message toolbar inside the secondary Messages surface: collection actions on row 1, always-visible filters on row 2.
 - Use a narrow selection-mode probe for visible filtered messages with bulk delete, while keeping filters locked during selection.
 - Keep add-message and selection modes mutually exclusive so the toolbar stays simple and predictable.
 - Introduce smarter repair tooling through focused workspaces outside the virtualized message list; GPS repair is the first approved capability.
@@ -154,8 +155,9 @@ The first version is for technical users repairing activity data. It is not a fu
 - Message cards sit inside that panel and appear one after another in file order.
 - Do not introduce a sidebar, three-column layout, dashboard stat cards, record detail pane, grouping, charts, timelines, or semantic zone tables in v1.
 - A focused map repair workspace is allowed outside the virtualized message list for the approved GPS repair flow.
-- Loaded state starts with the message toolbar, then the ordered message list.
-- The message toolbar owns collection-level actions such as adding messages and revealing filters; the header keeps file-level state and actions.
+- Loaded state starts with the map-first activity workspace.
+- Raw messages are hidden by default and open from an explicit secondary Messages surface.
+- The message toolbar owns collection-level actions such as adding messages and revealing filters inside that Messages surface; the header keeps file-level state and actions.
 - Message cards are quick-view entries. Detailed field editing happens only in a focused message editor panel opened from the message card edit icon-button.
 - Message cards show message type and timestamp if present, with no message index, source row, or field count.
 - The edit panel is rendered outside the virtualized message list so field editing remains stable while list rows mount and unmount.

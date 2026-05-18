@@ -1,16 +1,18 @@
 import {
   type ChangeEvent,
   type DragEvent,
+  type RefObject,
   Suspense,
   lazy,
   useLayoutEffect,
   useRef,
   useState,
 } from "react";
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import { ChevronDown } from "lucide-react";
 import { AddRawMessagePanel } from "../components/AddRawMessagePanel";
 import { MessageEditorPanel } from "../components/MessageEditorPanel";
-import { MessageToolbar } from "../components/MessageToolbar";
-import { MessageStream } from "../components/MessageStream";
+import { MessagesDialog } from "../components/MessagesDialog";
 import { IssuesDialog } from "../components/IssuesDialog";
 import { StatusPanel } from "../components/StatusPanel";
 import { TopBar } from "../components/TopBar";
@@ -20,6 +22,9 @@ import {
   app,
   content,
   hiddenFileInput,
+  messageMenuContent,
+  messageMenuItem,
+  secondaryButton,
 } from "../styles/app.css";
 
 const loadedDocumentScrollIds = new WeakMap<FitDocument, number>();
@@ -32,8 +37,10 @@ const GpsRepairPanel = lazy(async () => {
 function App() {
   const session = useFitEditorSession();
   const [isDragging, setIsDragging] = useState(false);
+  const [messagesOpen, setMessagesOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const uploadButtonRef = useRef<HTMLButtonElement | null>(null);
+  const messagesButtonRef = useRef<HTMLButtonElement | null>(null);
   const selectButtonRef = useRef<HTMLButtonElement | null>(null);
   const messageListRef = useRef<HTMLElement | null>(null);
   const editButtonRefs = useRef(new Map<string, HTMLButtonElement | null>());
@@ -42,7 +49,9 @@ function App() {
 
   const loaded = session.state.status === "loaded" ? session.state : null;
   const fallbackFocusTarget = loaded
-    ? messageListRef.current
+    ? messagesOpen
+      ? messageListRef.current ?? messagesButtonRef.current
+      : messagesButtonRef.current ?? messageListRef.current
     : uploadButtonRef.current;
   const scrollResetKey = loaded
     ? `${getLoadedDocumentScrollIdentity(loaded.document)}:${stringifyFitMessageFilter(session.activeFilter)}`
@@ -114,8 +123,48 @@ function App() {
         onOpenIssues={session.openIssues}
         uploadButtonRef={uploadButtonRef}
       />
+      <main className={content}>
+        {loaded && session.view ? (
+          <>
+            <Suspense fallback={null}>
+              <GpsRepairPanel
+                open
+                runs={session.gpsRepairRuns}
+                routeSegments={session.gpsRouteSegments}
+                selectedRunIndex={session.selectedGpsRepairRunIndex ?? 0}
+                previewRoute={session.gpsRepairPreviewRoute?.points ?? null}
+                status={session.gpsRepairStatus}
+                errorMessage={session.gpsRepairErrorMessage}
+                onClose={session.closeGpsRepair}
+                activityMenuSlot={
+                  <ActivityMenu
+                    messagesButtonRef={messagesButtonRef}
+                    onOpenMessages={() => setMessagesOpen(true)}
+                  />
+                }
+                onSelectRun={session.selectGpsRepairRun}
+                onRequestPreview={() => {
+                  void session.requestGpsRepairPreview();
+                }}
+                onCancelPreview={session.cancelGpsRepairPreview}
+                onApplyPreview={session.applyGpsRepairPreview}
+              />
+            </Suspense>
+          </>
+        ) : (
+          <StatusPanel
+            state={session.state}
+            dragging={isDragging}
+            onUpload={openUpload}
+          />
+        )}
+      </main>
       {loaded && session.view ? (
-        <MessageToolbar
+        <MessagesDialog
+          open={messagesOpen}
+          onOpenChange={setMessagesOpen}
+          closeFocusTarget={messagesButtonRef.current}
+          fallbackFocusTarget={fallbackFocusTarget}
           addMessageMode={session.rawInsertMode}
           selectionMode={session.selectionMode}
           selectedMessageCount={session.selectedMessageCount}
@@ -134,79 +183,43 @@ function App() {
             session.startAddMessage();
           }}
           onStartSelection={session.startSelectionMode}
-          onOpenGpsRepair={session.openGpsRepair}
           onDeleteSelected={session.deleteSelectedMessages}
           onClearSelection={session.clearSelectionMode}
           onFilterChange={session.setActiveFilter}
+          messages={session.visibleMessages}
+          editedMessageIds={session.editedMessageIds}
+          selectedMessageIds={session.selectedMessageIds}
+          insertMode={session.rawInsertMode}
+          outerSectionRef={messageListRef}
+          scrollResetKey={scrollResetKey}
+          onEditMessage={(messageId, focusTarget) => {
+            closeFocusTargetRef.current =
+              focusTarget ?? editButtonRefs.current.get(messageId) ?? null;
+            session.selectMessage(messageId);
+          }}
+          onDuplicateMessage={(messageId, focusTarget) => {
+            closeFocusTargetRef.current =
+              focusTarget ?? editButtonRefs.current.get(messageId) ?? null;
+            session.duplicateMessage(messageId);
+          }}
+          onDeleteMessage={(messageId) => {
+            session.deleteMessage(messageId);
+          }}
+          onToggleSelectedMessage={session.toggleSelectedMessage}
+          onSelectInsertPosition={(position, focusTarget) => {
+            closeFocusTargetRef.current = focusTarget ?? null;
+            session.selectInsertPosition(position);
+          }}
+          registerEditButtonRef={(messageId, element) => {
+            if (element) {
+              editButtonRefs.current.set(messageId, element);
+              return;
+            }
+
+            editButtonRefs.current.delete(messageId);
+          }}
         />
       ) : null}
-      <main className={content}>
-        {loaded && session.view ? (
-          <>
-            {session.gpsRepairOpen ? (
-              <Suspense fallback={null}>
-                <GpsRepairPanel
-                  open={session.gpsRepairOpen}
-                  runs={session.gpsRepairRuns}
-                  routeSegments={session.gpsRouteSegments}
-                  selectedRunIndex={session.selectedGpsRepairRunIndex ?? 0}
-                  previewRoute={session.gpsRepairPreviewRoute?.points ?? null}
-                  status={session.gpsRepairStatus}
-                  errorMessage={session.gpsRepairErrorMessage}
-                  onClose={session.closeGpsRepair}
-                  onSelectRun={session.selectGpsRepairRun}
-                  onRequestPreview={() => {
-                    void session.requestGpsRepairPreview();
-                  }}
-                  onCancelPreview={session.cancelGpsRepairPreview}
-                  onApplyPreview={session.applyGpsRepairPreview}
-                />
-              </Suspense>
-            ) : null}
-            <MessageStream
-              messages={session.visibleMessages}
-              editedMessageIds={session.editedMessageIds}
-              selectionMode={session.selectionMode}
-              selectedMessageIds={session.selectedMessageIds}
-              insertMode={session.rawInsertMode}
-              outerSectionRef={messageListRef}
-              scrollResetKey={scrollResetKey}
-              onEditMessage={(messageId, focusTarget) => {
-                closeFocusTargetRef.current =
-                  focusTarget ?? editButtonRefs.current.get(messageId) ?? null;
-                session.selectMessage(messageId);
-              }}
-              onDuplicateMessage={(messageId, focusTarget) => {
-                closeFocusTargetRef.current =
-                  focusTarget ?? editButtonRefs.current.get(messageId) ?? null;
-                session.duplicateMessage(messageId);
-              }}
-              onDeleteMessage={(messageId) => {
-                session.deleteMessage(messageId);
-              }}
-              onToggleSelectedMessage={session.toggleSelectedMessage}
-              onSelectInsertPosition={(position, focusTarget) => {
-                closeFocusTargetRef.current = focusTarget ?? null;
-                session.selectInsertPosition(position);
-              }}
-              registerEditButtonRef={(messageId, element) => {
-                if (element) {
-                  editButtonRefs.current.set(messageId, element);
-                  return;
-                }
-
-                editButtonRefs.current.delete(messageId);
-              }}
-            />
-          </>
-        ) : (
-          <StatusPanel
-            state={session.state}
-            dragging={isDragging}
-            onUpload={openUpload}
-          />
-        )}
-      </main>
       <AddRawMessagePanel
         open={Boolean(session.selectedInsertPosition)}
         insertionPointLabel={session.selectedInsertPositionLabel}
@@ -238,10 +251,50 @@ function App() {
         issues={session.issues}
         showDownloadAction={session.showDownloadAction}
         onClose={session.closeIssues}
-        onShowIssues={session.showIssuesInList}
+        onShowIssues={() => {
+          session.showIssuesInList();
+          setMessagesOpen(true);
+        }}
         onDownloadAnyway={session.downloadAnyway}
       />
     </div>
+  );
+}
+
+function ActivityMenu({
+  messagesButtonRef,
+  onOpenMessages,
+}: {
+  readonly messagesButtonRef: RefObject<HTMLButtonElement | null>;
+  readonly onOpenMessages: () => void;
+}) {
+  return (
+    <DropdownMenu.Root>
+      <DropdownMenu.Trigger asChild>
+        <button
+          ref={messagesButtonRef}
+          className={secondaryButton}
+          type="button"
+        >
+          <span>View</span>
+          <ChevronDown size={16} aria-hidden="true" />
+        </button>
+      </DropdownMenu.Trigger>
+      <DropdownMenu.Portal>
+        <DropdownMenu.Content
+          className={messageMenuContent}
+          sideOffset={8}
+          align="end"
+        >
+          <DropdownMenu.Item
+            className={messageMenuItem}
+            onSelect={onOpenMessages}
+          >
+            Messages
+          </DropdownMenu.Item>
+        </DropdownMenu.Content>
+      </DropdownMenu.Portal>
+    </DropdownMenu.Root>
   );
 }
 

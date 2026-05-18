@@ -1,11 +1,13 @@
 import { expect, test } from "@playwright/test";
 import path from "node:path";
+import { openMessages } from "./helpers";
 
 test("record filter does not overlap virtualized message cards", async ({ page }) => {
   await page.goto("/");
   await page.locator('input[type="file"]').setInputFiles(path.join(process.cwd(), "tests/fixtures/Activity.fit"));
 
   await expect(page.getByText("Activity.fit")).toBeVisible();
+  await openMessages(page);
   await page.getByRole("button", { name: /^record\d+$/ }).click();
 
   const cards = page.getByTestId("message-card");

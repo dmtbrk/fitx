@@ -7,7 +7,8 @@ export const panel = style({
   gap: tokens.space.x16,
   border: `1px solid ${tokens.color.borderSubtle}`,
   borderRadius: tokens.radius.xxxl,
-  background: tokens.color.surface,
+  background:
+    "linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 242, 250, 0.96))",
   boxShadow: tokens.color.shadowSoft,
   padding: tokens.space.x16,
   "@media": {
@@ -48,6 +49,7 @@ export const headerCopy = style({
   color: tokens.color.textSecondary,
   fontSize: 14,
   lineHeight: 1.5,
+  maxWidth: 720,
 });
 
 export const headerMeta = style({
@@ -86,6 +88,7 @@ export const headerActions = style({
   flexWrap: "wrap",
   gap: tokens.space.x8,
   alignItems: "center",
+  marginLeft: "auto",
 });
 
 export const stateBanner = style({
@@ -108,7 +111,7 @@ export const stateBannerError = style({
 export const workspace = style({
   display: "grid",
   gap: tokens.space.x16,
-  gridTemplateColumns: "minmax(0, 1.5fr) minmax(300px, 0.9fr)",
+  gridTemplateColumns: "minmax(0, 1.8fr) minmax(280px, 0.82fr)",
   alignItems: "start",
   "@media": {
     "(max-width: 899px)": {
@@ -125,12 +128,12 @@ export const mapColumn = style({
 
 export const mapShell = style({
   position: "relative",
-  minHeight: 320,
+  minHeight: 520,
   overflow: "hidden",
   borderRadius: tokens.radius.xxl,
   border: `1px solid ${tokens.color.borderDefault}`,
   background:
-    "linear-gradient(135deg, rgba(103, 80, 164, 0.08), rgba(255, 255, 255, 0.96) 42%, rgba(234, 221, 255, 0.72))",
+    "linear-gradient(135deg, rgba(103, 80, 164, 0.12), rgba(255, 255, 255, 0.96) 44%, rgba(234, 221, 255, 0.8))",
   boxShadow: tokens.color.shadowSoft,
 });
 
@@ -367,7 +370,7 @@ export const emptyState = style({
 export const footer = style({
   display: "flex",
   justifyContent: "space-between",
-  alignItems: "center",
+  alignItems: "flex-start",
   gap: tokens.space.x12,
   flexWrap: "wrap",
   borderTop: `1px solid ${tokens.color.borderSubtle}`,
@@ -386,4 +389,5 @@ export const footerActions = style({
   flexWrap: "wrap",
   gap: tokens.space.x8,
   marginLeft: "auto",
+  justifyContent: "flex-end",
 });

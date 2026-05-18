@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import path from "node:path";
+import { closeMessages, openMessages } from "./helpers";
 
 test("selection mode focuses the first checkbox and returns focus to Select when cleared", async ({
   page,
@@ -10,6 +11,7 @@ test("selection mode focuses the first checkbox and returns focus to Select when
     .setInputFiles(path.join(process.cwd(), "tests/fixtures/Activity.fit"));
 
   await expect(page.getByText("Activity.fit")).toBeVisible();
+  await openMessages(page);
   await page.getByRole("button", { name: "Select" }).click();
 
   const firstCheckbox = page.getByRole("checkbox").first();
@@ -30,6 +32,7 @@ test("selection is unavailable when the active filter has no visible messages", 
     .setInputFiles(path.join(process.cwd(), "tests/fixtures/Activity.fit"));
 
   await expect(page.getByText("Activity.fit")).toBeVisible();
+  await openMessages(page);
   await page.getByRole("button", { name: /^Issues\s*0$/ }).click();
 
   await expect(page.getByText("No messages match this filter.")).toBeVisible();
@@ -43,6 +46,7 @@ test("bulk delete confirms cancel and accept paths", async ({ page }) => {
     .setInputFiles(path.join(process.cwd(), "tests/fixtures/Activity.fit"));
 
   await expect(page.getByText("Activity.fit")).toBeVisible();
+  await openMessages(page);
   const cards = page.getByTestId("message-card");
   const firstCard = cards.nth(0);
   const secondCard = cards.nth(1);
@@ -95,6 +99,7 @@ test("show issues exits selection mode before switching to the Issues filter", a
     .setInputFiles(path.join(process.cwd(), "tests/fixtures/Activity.fit"));
 
   await expect(page.getByText("Activity.fit")).toBeVisible();
+  await openMessages(page);
   await page.getByRole("button", { name: /^record\d+$/ }).first().click();
 
   const editButton = page.getByRole("button", { name: "Edit record" }).first();
@@ -107,6 +112,7 @@ test("show issues exits selection mode before switching to the Issues filter", a
   await page.getByRole("button", { name: "Select" }).click();
   await expect(page.getByRole("checkbox").first()).toBeFocused();
 
+  await closeMessages(page);
   await page.getByText("1 issue").click();
   const issuesDialog = page.getByRole("dialog", { name: "Issues" });
   await expect(issuesDialog).toBeVisible();

@@ -653,6 +653,7 @@ export const messageScroll = style({
 });
 
 export const messageMenuContent = style({
+  zIndex: 60,
   borderRadius: tokens.radius.lg,
   border: `1px solid ${tokens.color.borderSubtle}`,
   background: tokens.color.surface,
