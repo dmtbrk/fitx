@@ -23,7 +23,7 @@ interface IssuesDialogProps {
   issues: readonly FitEditorIssue[];
   showDownloadAction: boolean;
   onClose: () => void;
-  onShowIssues: () => void;
+  onShowIssues?: () => void;
   onDownloadAnyway: () => void;
 }
 
@@ -81,7 +81,7 @@ export function IssuesDialog({
                           </p>
                         ) : null}
                       </div>
-                      {issue.scope === "message" ? (
+                      {issue.scope === "message" && onShowIssues ? (
                         <button
                           className={secondaryButton}
                           type="button"

@@ -3,7 +3,6 @@ import {
   useMemo,
   useRef,
   useState,
-  type ReactNode,
 } from "react";
 import { ChevronDown } from "lucide-react";
 import maplibregl, {
@@ -15,35 +14,9 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import "maplibre-gl/dist/maplibre-gl.css";
 import type { FitGpsRepairRun, FitRoutePoint } from "../editor";
 import { getFitMessageTimestampLabel } from "../editor";
+import { virtualList, virtualRow } from "../styles/app.css";
 import {
-  primaryButton,
-  secondaryButton,
-  virtualList,
-  virtualRow,
-} from "../styles/app.css";
-import {
-  detailColumn,
-  detailDisclosure,
-  detailDisclosureBody,
-  detailDisclosureTrigger,
-  detailDisclosureTriggerMeta,
   emptyState,
-  footer,
-  footerActions,
-  footerCopy,
-  header,
-  headerActions,
-  headerMeta,
-  list,
-  listItemButton,
-  listItemButtonSelected,
-  listItemHeader,
-  listItemMeta,
-  listItemTitle,
-  mapBadge,
-  mapBadgeAccent,
-  mapBadgeRow,
-  mapBadgeWarning,
   mapCanvas,
   mapColumn,
   mapLegend,
@@ -54,8 +27,19 @@ import {
   mapLegendMarkerMissing,
   mapLegendMarkerPreview,
   mapShell,
+  detailColumn,
+  detailDisclosure,
+  detailDisclosureBody,
+  detailDisclosureTrigger,
+  detailDisclosureTriggerMeta,
+  panel,
   metricPill,
-  metricsRow,
+  list,
+  listItemButton,
+  listItemButtonSelected,
+  listItemHeader,
+  listItemMeta,
+  listItemTitle,
   missingFlag,
   missingFlagMuted,
   missingFlags,
@@ -63,18 +47,12 @@ import {
   missingItemHeader,
   missingItemMeta,
   missingItemTitle,
-  panel,
   sectionTitle,
-  selectedSpanScroll,
   selectedSpanList,
+  selectedSpanScroll,
   stateBanner,
   stateBannerError,
   stateBannerLoading,
-  statusPill,
-  statusPillBusy,
-  statusPillError,
-  title,
-  titleWrap,
   workspace,
 } from "../styles/gpsRepairPanel.css";
 
@@ -89,7 +67,6 @@ export interface GpsRepairPanelProps {
   readonly status: GpsRepairStatus;
   readonly errorMessage: string | null;
   readonly onClose: () => void;
-  readonly activityMenuSlot?: ReactNode;
   readonly onSelectRun: (runIndex: number) => void;
   readonly onRequestPreview: () => void;
   readonly onCancelPreview: () => void;
@@ -118,19 +95,15 @@ export function GpsRepairPanel({
   previewRoute,
   status,
   errorMessage,
-  activityMenuSlot,
   onSelectRun,
-  onRequestPreview,
-  onCancelPreview,
-  onApplyPreview,
 }: GpsRepairPanelProps) {
-  const [detailsOpen, setDetailsOpen] = useState(false);
-  const [recordsOpen, setRecordsOpen] = useState(false);
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [recordsOpen, setRecordsOpen] = useState(false);
   const selectedSpanScrollRef = useRef<HTMLDivElement | null>(null);
-  const selectedRun = runs[selectedRunIndex] ?? null;
   const mapStyleUrl = resolveMapStyleUrl();
+  const selectedRun = runs[selectedRunIndex] ?? null;
   const gapSegments = useMemo(
     () =>
       runs.map((run) => [
@@ -139,20 +112,11 @@ export function GpsRepairPanel({
       ]),
     [runs],
   );
-  const routeMetrics = useMemo(
-    () => ({
-      knownPointCount: routeSegments.reduce(
-        (total, segment) => total + segment.length,
-        0,
-      ),
-      previewPointCount: previewRoute?.length ?? 0,
-      }),
-    [previewRoute, routeSegments],
-  );
+  const selectedMissingRecords = selectedRun?.missingRecords ?? [];
   const selectedSpanVirtualizer = useVirtualizer({
-    count: selectedRun?.missingRecords.length ?? 0,
+    count: selectedMissingRecords.length,
     getScrollElement: () => selectedSpanScrollRef.current,
-    getItemKey: (index) => selectedRun?.missingRecords[index]?.record.id ?? index,
+    getItemKey: (index) => selectedMissingRecords[index]?.record.id ?? index,
     estimateSize: () => 86,
     overscan: 4,
   });
@@ -265,31 +229,10 @@ export function GpsRepairPanel({
     return null;
   }
 
-  const selectedMissingRecords = selectedRun?.missingRecords ?? [];
-  const statusLabel = getStatusLabel(status, errorMessage);
-  const statusPillClass = [
-    statusPill,
-    status === "loading" ? statusPillBusy : "",
-    status === "error" ? statusPillError : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
+  const renderRepairSpans = false;
 
   return (
     <section className={panel} aria-label="GPS repair workspace">
-      <header className={header}>
-        <div className={titleWrap}>
-          <h2 className={title}>GPS repair</h2>
-          <div className={headerMeta}>
-            <span className={statusPillClass}>{statusLabel}</span>
-            <span>
-              {runs.length} repairable {runs.length === 1 ? "span" : "spans"}
-            </span>
-          </div>
-        </div>
-        {activityMenuSlot ? <div className={headerActions}>{activityMenuSlot}</div> : null}
-      </header>
-
       {status === "loading" ? (
         <div className={`${stateBanner} ${stateBannerLoading}`}>
           Building preview.
@@ -305,15 +248,6 @@ export function GpsRepairPanel({
         <div className={mapColumn}>
           <div className={mapShell}>
             <div ref={mapContainerRef} className={mapCanvas} aria-label="GPS repair map" />
-            <div className={mapBadgeRow}>
-              <span className={`${mapBadge} ${mapBadgeAccent}`}>
-                {routeMetrics.knownPointCount} known points
-              </span>
-              <span className={mapBadge}>{runs.length} gaps</span>
-              <span className={`${mapBadge} ${status === "error" ? mapBadgeWarning : ""}`}>
-                {routeMetrics.previewPointCount} preview points
-              </span>
-            </div>
             <ul className={mapLegend} aria-label="Map legend">
               <li className={mapLegendItem}>
                 <span
@@ -341,172 +275,146 @@ export function GpsRepairPanel({
         </div>
       </div>
 
-      <section className={detailDisclosure} aria-label="Repair spans">
-        <button
-          className={detailDisclosureTrigger}
-          type="button"
-          aria-expanded={detailsOpen}
-          onClick={() => setDetailsOpen((current) => !current)}
-        >
-          <span>Spans ({runs.length})</span>
-          <span className={detailDisclosureTriggerMeta}>
-            {selectedRun
-              ? `Selected: Span ${selectedRunIndex + 1}, ${selectedMissingRecords.length} records`
-              : "No span selected"}
-          </span>
-          <ChevronDown size={17} aria-hidden="true" />
-        </button>
+      {renderRepairSpans ? (
+        <section className={detailDisclosure} aria-label="Repair spans">
+          <button
+            className={detailDisclosureTrigger}
+            type="button"
+            aria-expanded={detailsOpen}
+            onClick={() => setDetailsOpen((current) => !current)}
+          >
+            <span>Spans ({runs.length})</span>
+            <span className={detailDisclosureTriggerMeta}>
+              {selectedRun
+                ? `Selected: Span ${selectedRunIndex + 1}, ${selectedMissingRecords.length} records`
+                : "No span selected"}
+            </span>
+            <ChevronDown size={17} aria-hidden="true" />
+          </button>
 
-        {detailsOpen ? (
-          <div className={detailDisclosureBody}>
-            <div className={detailColumn}>
-              <section aria-label="Repair span list">
-                <h3 className={sectionTitle}>Spans</h3>
-                {runs.length > 0 ? (
-                  <ul className={list}>
-                    {runs.map((run, runIndex) => {
-                      const isSelected = runIndex === selectedRunIndex;
-                      return (
-                        <li key={`${run.before.record.id}:${run.after.record.id}`}>
-                          <button
-                            className={[
-                              listItemButton,
-                              isSelected ? listItemButtonSelected : "",
-                            ]
-                              .filter(Boolean)
-                              .join(" ")}
-                            type="button"
-                            onClick={() => onSelectRun(runIndex)}
+          {detailsOpen ? (
+            <div className={detailDisclosureBody}>
+              <div className={detailColumn}>
+                <section aria-label="Repair span list">
+                  <h3 className={sectionTitle}>Spans</h3>
+                  {runs.length > 0 ? (
+                    <ul className={list}>
+                      {runs.map((run, runIndex) => {
+                        const isSelected = runIndex === selectedRunIndex;
+                        return (
+                          <li key={`${run.before.record.id}:${run.after.record.id}`}>
+                            <button
+                              className={[
+                                listItemButton,
+                                isSelected ? listItemButtonSelected : "",
+                              ]
+                                .filter(Boolean)
+                                .join(" ")}
+                              type="button"
+                              onClick={() => onSelectRun(runIndex)}
+                            >
+                              <div className={listItemHeader}>
+                                <span className={listItemTitle}>
+                                  Span {runIndex + 1}
+                                  {isSelected ? (
+                                    <span className={metricPill}>selected</span>
+                                  ) : null}
+                                </span>
+                                <span className={listItemMeta}>
+                                  {run.missingRecords.length} records
+                                </span>
+                              </div>
+                              <div className={listItemMeta}>{formatRunLabel(run)}</div>
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  ) : (
+                    <div className={emptyState}>
+                      No bounded missing GPS spans were found.
+                    </div>
+                  )}
+                </section>
+
+                <section className={detailDisclosure} aria-label="Selected span records">
+                  <button
+                    className={detailDisclosureTrigger}
+                    type="button"
+                    aria-expanded={recordsOpen}
+                    onClick={() => setRecordsOpen((current) => !current)}
+                  >
+                    <span>Records</span>
+                    <span className={detailDisclosureTriggerMeta}>
+                      {selectedRun
+                        ? `${selectedMissingRecords.length} records`
+                        : "No span selected"}
+                    </span>
+                    <ChevronDown size={17} aria-hidden="true" />
+                  </button>
+
+                  {recordsOpen ? (
+                    <div className={detailDisclosureBody}>
+                      {selectedMissingRecords.length > 0 ? (
+                        <div ref={selectedSpanScrollRef} className={selectedSpanScroll}>
+                          <ul
+                            className={`${virtualList} ${selectedSpanList}`}
+                            aria-label="Selected span records"
+                            style={{ height: selectedSpanVirtualizer.getTotalSize() }}
                           >
-                            <div className={listItemHeader}>
-                              <span className={listItemTitle}>
-                                Span {runIndex + 1}
-                                {isSelected ? <span className={metricPill}>selected</span> : null}
-                              </span>
-                              <span className={listItemMeta}>
-                                {run.missingRecords.length} records
-                              </span>
-                            </div>
-                            <div className={listItemMeta}>{formatRunLabel(run)}</div>
-                          </button>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                ) : (
-                  <div className={emptyState}>No bounded missing GPS spans were found.</div>
-                )}
-              </section>
+                            {selectedSpanVirtualizer.getVirtualItems().map((item) => {
+                              const missingRecord = selectedMissingRecords[item.index];
+                              if (!missingRecord) {
+                                return null;
+                              }
 
-              <section className={detailDisclosure} aria-label="Selected span records">
-                <button
-                  className={detailDisclosureTrigger}
-                  type="button"
-                  aria-expanded={recordsOpen}
-                  onClick={() => setRecordsOpen((current) => !current)}
-                >
-                  <span>Records</span>
-                  <span className={detailDisclosureTriggerMeta}>
-                    {selectedRun
-                      ? `${selectedMissingRecords.length} records`
-                      : "No span selected"}
-                  </span>
-                  <ChevronDown size={17} aria-hidden="true" />
-                </button>
-
-                {recordsOpen ? (
-                  <div className={detailDisclosureBody}>
-                    {selectedMissingRecords.length > 0 ? (
-                      <div ref={selectedSpanScrollRef} className={selectedSpanScroll}>
-                        <ul
-                          className={`${virtualList} ${selectedSpanList}`}
-                          aria-label="Selected span records"
-                          style={{ height: selectedSpanVirtualizer.getTotalSize() }}
-                        >
-                          {selectedSpanVirtualizer.getVirtualItems().map((item) => {
-                            const missingRecord = selectedMissingRecords[item.index];
-                            if (!missingRecord) {
-                              return null;
-                            }
-
-                            return (
-                              <li
-                                key={missingRecord.record.id}
-                                ref={selectedSpanVirtualizer.measureElement}
-                                className={virtualRow}
-                                data-index={item.index}
-                                style={{ transform: `translateY(${item.start}px)` }}
-                              >
-                                <div className={missingItem}>
-                                  <div className={missingItemHeader}>
-                                    <h4 className={missingItemTitle}>
-                                      {getFitMessageTimestampLabel(missingRecord.record) ??
-                                        `${missingRecord.timestampSeconds}s`}
-                                    </h4>
-                                    <span className={missingItemMeta}>
-                                      Record {missingRecord.record.order + 1}
-                                    </span>
-                                  </div>
-                                  <div className={missingFlags}>
-                                    {missingRecord.missingLatitude ? (
-                                      <span className={missingFlag}>Latitude missing</span>
-                                    ) : null}
-                                    {missingRecord.missingLongitude ? (
-                                      <span className={`${missingFlag} ${missingFlagMuted}`}>
-                                        Longitude missing
+                              return (
+                                <li
+                                  key={missingRecord.record.id}
+                                  ref={selectedSpanVirtualizer.measureElement}
+                                  className={virtualRow}
+                                  data-index={item.index}
+                                  style={{ transform: `translateY(${item.start}px)` }}
+                                >
+                                  <div className={missingItem}>
+                                    <div className={missingItemHeader}>
+                                      <h4 className={missingItemTitle}>
+                                        {getFitMessageTimestampLabel(missingRecord.record) ??
+                                          `${missingRecord.timestampSeconds}s`}
+                                      </h4>
+                                      <span className={missingItemMeta}>
+                                        Record {missingRecord.record.order + 1}
                                       </span>
-                                    ) : null}
+                                    </div>
+                                    <div className={missingFlags}>
+                                      {missingRecord.missingLatitude ? (
+                                        <span className={missingFlag}>Latitude missing</span>
+                                      ) : null}
+                                      {missingRecord.missingLongitude ? (
+                                        <span className={`${missingFlag} ${missingFlagMuted}`}>
+                                          Longitude missing
+                                        </span>
+                                      ) : null}
+                                    </div>
                                   </div>
-                                </div>
-                              </li>
-                            );
-                          })}
-                        </ul>
-                      </div>
-                    ) : (
-                      <div className={emptyState}>
-                        Select a repairable span to inspect its records.
-                      </div>
-                    )}
-                  </div>
-                ) : null}
-              </section>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        </div>
+                      ) : (
+                        <div className={emptyState}>
+                          Select a repairable span to inspect its records.
+                        </div>
+                      )}
+                    </div>
+                  ) : null}
+                </section>
+              </div>
             </div>
-          </div>
-        ) : null}
-      </section>
-
-      <footer className={footer}>
-        <p className={footerCopy}>
-          {status === "preview" ? "Preview ready." : "No preview staged."}
-        </p>
-        <div className={footerActions}>
-          <button
-            className={secondaryButton}
-            type="button"
-            onClick={onRequestPreview}
-            disabled={status === "loading" || selectedRun === null}
-          >
-            Preview repair
-          </button>
-          <button
-            className={secondaryButton}
-            type="button"
-            onClick={onCancelPreview}
-            disabled={status !== "loading" && status !== "preview"}
-          >
-            Cancel preview
-          </button>
-          <button
-            className={primaryButton}
-            type="button"
-            onClick={onApplyPreview}
-            disabled={status !== "preview"}
-          >
-            Apply preview
-          </button>
-        </div>
-      </footer>
+          ) : null}
+        </section>
+      ) : null}
     </section>
   );
 }
@@ -566,22 +474,6 @@ function resolveMapStyleUrl(): string | null {
   ).env?.VITE_MAP_STYLE_URL?.trim();
 
   return styleUrl && styleUrl.length > 0 ? styleUrl : null;
-}
-
-function getStatusLabel(status: GpsRepairStatus, errorMessage: string | null): string {
-  if (status === "error") {
-    return errorMessage ? "Preview error" : "Preview unavailable";
-  }
-
-  if (status === "loading") {
-    return "Building preview";
-  }
-
-  if (status === "preview") {
-    return "Preview ready";
-  }
-
-  return "Idle";
 }
 
 function formatRunLabel(run: FitGpsRepairRun): string {

@@ -6,13 +6,11 @@ Implementation in progress. Phase 1 risk-first FIT core slice is complete; the c
 
 Current UI direction:
 
-- Make the loaded state map-first: the large activity map is the default workspace, and raw messages live in a secondary surface opened explicitly by the user.
+- Make the loaded state map-only: after upload, the active workspace is the large activity map.
 - Keep the loaded workspace aligned with the same page width as the header.
-- Keep the two-row message toolbar inside the secondary Messages surface: collection actions on row 1, always-visible filters on row 2.
-- Use a narrow selection-mode probe for visible filtered messages with bulk delete, while keeping filters locked during selection.
-- Keep add-message and selection modes mutually exclusive so the toolbar stays simple and predictable.
-- Introduce smarter repair tooling through focused workspaces outside the virtualized message list; GPS repair is the first approved capability.
-- Keep selected GPS-span records secondary: hidden by default and virtualized only when opened.
+- Leave the existing raw message, edit, insert, toolbar, and dialog components in the codebase for future redesign work, but do not mount them in the active app shell.
+- Keep file-level upload, download, and issue handling available from the header.
+- Keep the underlying repair/session pieces available for the next redesign pass, while rendering GPS repair as map-first chrome only: no GPS repair header, no repair spans surface, no repair action footer, and no top-left point badges.
 
 Completed in Phase 1:
 
@@ -101,6 +99,12 @@ Current map workspace cleanup slice:
 - Keep selected-span records hidden by default and virtualized on demand.
 - Restore visible map attribution and replace prose legend copy with compact visual legend markers.
 
+Current map workspace simplification slice:
+
+- Remove the temporary `View` entry point while the Messages interaction model is undecided.
+- Render the GPS workspace as map-first chrome only: no GPS repair header, no repair spans surface, no repair action footer, and no top-left point badges.
+- Keep the underlying repair/session pieces available for the next redesign pass.
+
 Known Phase 1 limits:
 
 - `scripts/generate-fit-profile.mjs` now has a fixture-driven canonical JSON input path; the committed generated profile artifact is still a small representative sample for tests and early UI work, not the full Garmin profile.
@@ -161,14 +165,12 @@ The first version is for technical users repairing activity data. It is not a fu
 - Material Design 3 is inspiration only: calm tonal surfaces, rounded panels, subtle outlines, strong spacing, clear typography, light theme first.
 - Header is flush with the page background.
 - Main content uses one rounded surface/panel.
-- Message cards sit inside that panel and appear one after another in file order.
+- The loaded main content is currently the activity map only.
 - Do not introduce a sidebar, three-column layout, dashboard stat cards, record detail pane, grouping, charts, timelines, or semantic zone tables in v1.
-- A focused map repair workspace is allowed outside the virtualized message list for the approved GPS repair flow.
-- Loaded state starts with the map-first activity workspace.
+- A focused map repair workspace is the active loaded workspace.
 - The loaded activity workspace remains horizontally aligned with the app header.
-- Selected-span record inspection stays secondary to the map: collapsed by default and virtualized when opened.
-- Raw messages are hidden by default and open from an explicit secondary Messages surface.
-- The message toolbar owns collection-level actions such as adding messages and revealing filters inside that Messages surface; the header keeps file-level state and actions.
+- The current loaded-state Messages entry point is withheld pending a later product decision on whether raw messages should return.
+- Raw message, message toolbar, insertion, and editor components remain available in the codebase but are not mounted in the active shell.
 - Message cards are quick-view entries. Detailed field editing happens only in a focused message editor panel opened from the message card edit icon-button.
 - Message cards show message type and timestamp if present, with no message index, source row, or field count.
 - The edit panel is rendered outside the virtualized message list so field editing remains stable while list rows mount and unmount.

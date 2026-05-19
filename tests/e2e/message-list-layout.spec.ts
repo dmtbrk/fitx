@@ -2,6 +2,8 @@ import { expect, test } from "@playwright/test";
 import path from "node:path";
 import { openMessages } from "./helpers";
 
+test.describe.skip("message list layout", () => {
+
 test("record filter does not overlap virtualized message cards", async ({ page }) => {
   await page.goto("/");
   await page.locator('input[type="file"]').setInputFiles(path.join(process.cwd(), "tests/fixtures/Activity.fit"));
@@ -41,4 +43,6 @@ test("record filter does not overlap virtualized message cards", async ({ page }
     message: "visible virtualized message cards should not overlap after filtering",
     timeout: 5000
   }).toBe(true);
+});
+
 });

@@ -1,11 +1,9 @@
 import type { Page } from "@playwright/test";
 
 export async function openMessages(page: Page) {
-  await page.getByRole("button", { name: "View", exact: true }).click();
-  await page.getByRole("menuitem", { name: "Messages" }).click();
+  throw new Error("Messages launcher is removed in the current UI.");
 }
 
 export async function closeMessages(page: Page) {
-  const messagesDialog = page.getByRole("dialog", { name: "Messages" });
-  await messagesDialog.getByRole("button", { name: "Close" }).click();
+  throw new Error("Messages dialog is unreachable without the launcher.");
 }

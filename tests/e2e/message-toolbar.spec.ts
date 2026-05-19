@@ -2,6 +2,8 @@ import { expect, test } from "@playwright/test";
 import path from "node:path";
 import { closeMessages, openMessages } from "./helpers";
 
+test.describe.skip("message toolbar", () => {
+
 test("selection mode focuses the first checkbox and returns focus to Select when cleared", async ({
   page,
 }) => {
@@ -121,4 +123,6 @@ test("show issues exits selection mode before switching to the Issues filter", a
   await expect(page.getByRole("button", { name: "Select" })).toBeVisible();
   await expect(page.getByRole("checkbox")).toHaveCount(0);
   await expect(page.getByRole("button", { name: /^Issues\s*1$/ })).toBeVisible();
+});
+
 });

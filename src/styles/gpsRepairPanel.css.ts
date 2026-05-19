@@ -18,71 +18,6 @@ export const panel = style({
   },
 });
 
-export const hidden = style({
-  display: "none",
-});
-
-export const header = style({
-  display: "flex",
-  alignItems: "flex-start",
-  justifyContent: "space-between",
-  gap: tokens.space.x12,
-  flexWrap: "wrap",
-});
-
-export const titleWrap = style({
-  minWidth: 0,
-  display: "grid",
-  gap: tokens.space.x4,
-});
-
-export const title = style({
-  margin: 0,
-  color: tokens.color.textPrimary,
-  fontSize: 20,
-  fontWeight: 650,
-  lineHeight: 1.2,
-});
-
-export const headerMeta = style({
-  display: "flex",
-  flexWrap: "wrap",
-  gap: tokens.space.x8,
-  alignItems: "center",
-  color: tokens.color.textSecondary,
-  fontSize: 13,
-  fontWeight: 600,
-  lineHeight: 1.35,
-});
-
-export const statusPill = style({
-  display: "inline-flex",
-  alignItems: "center",
-  gap: tokens.space.x6,
-  borderRadius: tokens.radius.pill,
-  padding: `${tokens.space.x4} ${tokens.space.x10}`,
-  background: tokens.color.surfaceAccent,
-  color: tokens.color.textAccent,
-});
-
-export const statusPillBusy = style({
-  background: tokens.color.surfaceWarning,
-  color: tokens.color.textWarning,
-});
-
-export const statusPillError = style({
-  background: tokens.color.surfaceDangerStrong,
-  color: tokens.color.textDanger,
-});
-
-export const headerActions = style({
-  display: "flex",
-  flexWrap: "wrap",
-  gap: tokens.space.x8,
-  alignItems: "center",
-  marginLeft: "auto",
-});
-
 export const stateBanner = style({
   borderRadius: tokens.radius.xl,
   padding: `${tokens.space.x12} ${tokens.space.x14}`,
@@ -127,39 +62,6 @@ export const mapShell = style({
 export const mapCanvas = style({
   position: "absolute",
   inset: 0,
-});
-
-export const mapBadgeRow = style({
-  position: "absolute",
-  top: tokens.space.x12,
-  left: tokens.space.x12,
-  right: tokens.space.x12,
-  display: "flex",
-  flexWrap: "wrap",
-  gap: tokens.space.x8,
-  alignItems: "center",
-});
-
-export const mapBadge = style({
-  display: "inline-flex",
-  alignItems: "center",
-  borderRadius: tokens.radius.pill,
-  padding: `${tokens.space.x4} ${tokens.space.x10}`,
-  background: "rgba(255, 255, 255, 0.84)",
-  color: tokens.color.textSecondary,
-  fontSize: 12,
-  fontWeight: 650,
-  backdropFilter: "blur(8px)",
-});
-
-export const mapBadgeAccent = style({
-  background: tokens.color.surfaceAccent,
-  color: tokens.color.textAccent,
-});
-
-export const mapBadgeWarning = style({
-  background: tokens.color.surfaceWarning,
-  color: tokens.color.textWarning,
 });
 
 export const mapLegend = style({
@@ -264,13 +166,15 @@ export const detailDisclosureBody = style({
   paddingTop: tokens.space.x12,
 });
 
-export const card = style({
-  display: "grid",
-  gap: tokens.space.x12,
-  borderRadius: tokens.radius.xxl,
-  border: `1px solid ${tokens.color.borderSubtle}`,
-  background: tokens.color.surfaceMuted,
-  padding: tokens.space.x14,
+export const emptyState = style({
+  borderRadius: tokens.radius.xl,
+  border: `1px dashed ${tokens.color.borderDefault}`,
+  background: tokens.color.surface,
+  padding: `${tokens.space.x16} ${tokens.space.x14}`,
+  color: tokens.color.textSecondary,
+  textAlign: "center",
+  fontSize: 13,
+  lineHeight: 1.45,
 });
 
 export const sectionTitle = style({
@@ -279,12 +183,6 @@ export const sectionTitle = style({
   fontSize: 15,
   fontWeight: 650,
   lineHeight: 1.35,
-});
-
-export const metricsRow = style({
-  display: "flex",
-  flexWrap: "wrap",
-  gap: tokens.space.x8,
 });
 
 export const metricPill = style({
@@ -420,40 +318,4 @@ export const missingFlag = style({
 export const missingFlagMuted = style({
   background: tokens.color.surfaceWarning,
   color: tokens.color.textWarning,
-});
-
-export const emptyState = style({
-  borderRadius: tokens.radius.xl,
-  border: `1px dashed ${tokens.color.borderDefault}`,
-  background: tokens.color.surface,
-  padding: `${tokens.space.x16} ${tokens.space.x14}`,
-  color: tokens.color.textSecondary,
-  textAlign: "center",
-  fontSize: 13,
-  lineHeight: 1.45,
-});
-
-export const footer = style({
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "flex-start",
-  gap: tokens.space.x12,
-  flexWrap: "wrap",
-  borderTop: `1px solid ${tokens.color.borderSubtle}`,
-  paddingTop: tokens.space.x14,
-});
-
-export const footerCopy = style({
-  margin: 0,
-  color: tokens.color.textTertiary,
-  fontSize: 12,
-  lineHeight: 1.45,
-});
-
-export const footerActions = style({
-  display: "flex",
-  flexWrap: "wrap",
-  gap: tokens.space.x8,
-  marginLeft: "auto",
-  justifyContent: "flex-end",
 });
