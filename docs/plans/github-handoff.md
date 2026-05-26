@@ -22,5 +22,5 @@ Push the current FITx project state to a GitHub repository so work can continue 
 1. [x] Inspect repository status, branch, remotes, and handoff docs.
 2. [x] Confirm GitHub target and file inclusion policy.
 3. [x] Commit intended project changes.
-4. [ ] Add remote if needed and push the branch.
+4. [x] Add remote if needed and push the branch.
 5. [x] Run feasible verification and report results.
