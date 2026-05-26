@@ -3,13 +3,19 @@ import {
   type DragEvent,
   Suspense,
   lazy,
+  useMemo,
   useRef,
   useState,
 } from "react";
 import { IssuesDialog } from "../components/IssuesDialog";
 import { StatusPanel } from "../components/StatusPanel";
 import { TopBar } from "../components/TopBar";
-import { useFitEditorSession } from "../editor";
+import {
+  buildFitActivitySummary,
+  buildFitLapDataSummaries,
+  buildFitSessionDataSummary,
+  useFitEditorSession,
+} from "../editor";
 import { app, content, hiddenFileInput } from "../styles/app.css";
 
 const GpsRepairPanel = lazy(async () => {
@@ -17,15 +23,43 @@ const GpsRepairPanel = lazy(async () => {
   return { default: module.GpsRepairPanel };
 });
 
+const requestTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
 function App() {
   const session = useFitEditorSession();
   const [isDragging, setIsDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
-  const uploadButtonRef = useRef<HTMLButtonElement | null>(null);
+  const openButtonRef = useRef<HTMLButtonElement | null>(null);
 
   const loaded = session.state.status === "loaded" ? session.state : null;
-
-  function openUpload() {
+  const activitySummary = useMemo(
+    () =>
+      session.effectiveDocument
+        ? buildFitActivitySummary(session.effectiveDocument, {
+            timeZone: requestTimeZone,
+          })
+        : null,
+    [session.effectiveDocument],
+  );
+  const lapSummaries = useMemo(
+    () =>
+      loaded?.document
+        ? buildFitLapDataSummaries(loaded.document, {
+            timeZone: requestTimeZone,
+          })
+        : [],
+    [loaded?.document],
+  );
+  const sessionDataSummary = useMemo(
+    () =>
+      session.effectiveDocument
+        ? buildFitSessionDataSummary(session.effectiveDocument, {
+            timeZone: requestTimeZone,
+          })
+        : null,
+    [session.effectiveDocument],
+  );
+  function openFile() {
     inputRef.current?.click();
   }
 
@@ -67,30 +101,31 @@ function App() {
         loaded={Boolean(loaded)}
         issueCount={session.issueCount}
         editCount={session.editCount}
-        onUpload={openUpload}
-        onDownload={session.download}
+        onOpenFile={openFile}
+        onSave={session.download}
         onOpenIssues={session.openIssues}
-        uploadButtonRef={uploadButtonRef}
+        openButtonRef={openButtonRef}
       />
       <main className={content}>
-        {loaded && session.view ? (
+        {loaded && session.view && activitySummary && session.gpsMapView ? (
           <>
             <Suspense fallback={null}>
               <GpsRepairPanel
                 open
+                activitySummary={activitySummary}
+                sessionDataSummary={sessionDataSummary}
+                lapSummaries={lapSummaries}
+                messageDocument={session.effectiveDocument}
+                timeZone={requestTimeZone}
                 runs={session.gpsRepairRuns}
-                routeSegments={session.gpsRouteSegments}
+                fixedRepairs={session.gpsFixedRepairs}
+                gpsMapView={session.gpsMapView}
                 selectedRunIndex={session.selectedGpsRepairRunIndex ?? 0}
-                previewRoute={session.gpsRepairPreviewRoute?.points ?? null}
-                status={session.gpsRepairStatus}
-                errorMessage={session.gpsRepairErrorMessage}
                 onClose={session.closeGpsRepair}
                 onSelectRun={session.selectGpsRepairRun}
-                onRequestPreview={() => {
-                  void session.requestGpsRepairPreview();
-                }}
-                onCancelPreview={session.cancelGpsRepairPreview}
-                onApplyPreview={session.applyGpsRepairPreview}
+                onMoveGpsRecordPoint={session.moveGpsRecordPoint}
+                onEraseGpsRange={session.eraseGpsRange}
+                onPlaceGpsRepairAnchor={session.placeGpsRepairAnchor}
               />
             </Suspense>
           </>
@@ -98,16 +133,16 @@ function App() {
           <StatusPanel
             state={session.state}
             dragging={isDragging}
-            onUpload={openUpload}
+            onOpenFile={openFile}
           />
         )}
       </main>
       <IssuesDialog
         open={session.issuesOpen}
         issues={session.issues}
-        showDownloadAction={session.showDownloadAction}
+        showSaveAction={session.showDownloadAction}
         onClose={session.closeIssues}
-        onDownloadAnyway={session.downloadAnyway}
+        onSaveAnyway={session.downloadAnyway}
       />
     </div>
   );

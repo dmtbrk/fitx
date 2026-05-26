@@ -27,6 +27,32 @@ describe("fit profile metadata", () => {
     expect(hasProfileFieldMetadata(18, 9)).toBe(true);
   });
 
+  it("resolves Garmin lap boundary compatibility fields", () => {
+    const field = getProfileFieldMetadata(19, 29);
+
+    expect(field.known).toBe(true);
+    expect(field.messageName).toBe("lap");
+    expect(field.name).toBe("swc_lat");
+    expect(field.baseType).toBe("sint32");
+    expect(field.units).toBe("semicircles");
+    expect(field.profileSource).toBe("HarryOnline community FIT profile");
+    expect(hasProfileFieldMetadata(19, 29)).toBe(true);
+  });
+
+  it("resolves community-only message metadata", () => {
+    const message = getProfileMessageMetadata(326);
+
+    expect(message.known).toBe(true);
+    expect(message.name).toBe("gps_event");
+    expect(message.fields.map((candidate) => candidate.number)).toContain(0);
+    const field = getProfileFieldMetadata(326, 0);
+
+    expect(field.known).toBe(true);
+    expect(field.messageName).toBe("gps_event");
+    expect(field.name).toBe("event_type");
+    expect(field.profileSourceUrl).toContain("harryonline.net");
+  });
+
   it("falls back to unknown message and field metadata", () => {
     const message = getProfileMessageMetadata(999);
     const field = getProfileFieldMetadata(999, 12);

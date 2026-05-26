@@ -11,6 +11,14 @@ Current UI direction:
 - Leave the existing raw message, edit, insert, toolbar, and dialog components in the codebase for future redesign work, but do not mount them in the active app shell.
 - Keep file-level upload, download, and issue handling available from the header.
 - Keep the underlying repair/session pieces available for the next redesign pass, while rendering GPS repair as map-first chrome only: no GPS repair header, no repair spans surface, no repair action footer, and no top-left point badges.
+- Activity summary is now part of the main map panel above the map. It shows activity identity, request-timezone start time, Session distance, recalculated GPS distance, and duration using the FIT document as the source of truth.
+- The explicit GPS gaps list is removed from the active map workspace for now because it does not fit the design. Keep the underlying gaps model available for the next repair-control redesign.
+- The underlying fill and auto-route commands still exist, but their visible row controls are deferred until the next repair-control redesign.
+- Bad GPS can be erased from the map by selecting a range of known route points with `Erase GPS`; the app stages `null` edits for only `position_lat` and `position_long`, preserving the records and all non-GPS sensor/timing data.
+- Open-ended erased gaps can still be represented in the repair model; the visible anchor-placement control is deferred with the gaps-list redesign.
+- Fixed routes draw on top of known/gap lines and selected fixed repairs expose draggable points. Point popups show known record fields with human-readable timestamp and timer values for debugging real FIT data.
+- Status banners were removed from the repair panel. Loading/error feedback is expressed through button states, with route errors available through the error dialog.
+- Verification for the current map/GPS workflow has passed with `npm test` and `npm run build`; Vite still reports the known large chunk warning.
 
 Completed in Phase 1:
 
@@ -105,6 +113,15 @@ Current map workspace simplification slice:
 - Render the GPS workspace as map-first chrome only: no GPS repair header, no repair spans surface, no repair action footer, and no top-left point badges.
 - Keep the underlying repair/session pieces available for the next redesign pass.
 
+Current smart GPS tooling slice:
+
+- The app treats missing GPS and intentionally erased bad GPS through the same repair model.
+- Gap detection is based on every consecutive `record` sequence missing complete GPS data, including open-start and open-end runs.
+- Repair point placement uses timer time when available and absolute FIT timestamps otherwise; there is no even-spacing fallback, so odd source timing remains visible during debugging.
+- Session and GPS distance are intentionally separate in the activity header: Session comes from FIT session summary fields, while GPS is recalculated from current effective route geometry after erase/fill/routing/manual edits.
+- Erased GPS points are invalidated as FIT field edits rather than deleting records, so heart rate, cadence, power, timestamps, timer state, and other fields remain intact.
+- Manual point dragging rewrites only the GPS fields represented by the selected fixed repair and recalculates the fixed repair distance.
+
 Known Phase 1 limits:
 
 - `scripts/generate-fit-profile.mjs` now has a fixture-driven canonical JSON input path; the committed generated profile artifact is still a small representative sample for tests and early UI work, not the full Garmin profile.
@@ -119,6 +136,109 @@ Architecture review findings:
 - The legacy `src/lib/fitParser.ts` parser path has been retired; the production codebase now has one FIT document model.
 - Validation now has one editor preflight boundary for the current document plus edit overlay; future work should decide which validations migrate deeper into `fit` as the writer/profile model matures.
 - Whole-document parsing/export/validation and broad view-model derivation currently run on the UI thread; workerization and indexed selectors should be part of the production architecture before large-file and analysis features grow.
+
+Architecture debt register from the May 2026 review:
+
+- `src/editor/useFitEditorSession.ts` is the highest-risk architecture knot. It is a React hook, application state store, command handler, browser file/download adapter, routing client, GPS repair coordinator, validation gate, and selector host in one module. This violates single responsibility and makes dependency injection difficult because `parseFitDocument`, `writeFitDocument`, `fetch`, `Blob`, `URL.createObjectURL`, `window.document`, `window.confirm`, GraphHopper provider creation, ID generation, validation, and overlay mutation are all reached directly from the same hook.
+- Routing is not injected. `useFitEditorSession.ts` constructs `createGraphHopperRouteProvider()` and calls `fetch` inside GPS commands. `src/editor/routing.ts` also reads `import.meta.env` directly. This couples editor commands to Vite/browser runtime configuration and one provider, which makes tests and future offline/mock/routing-provider choices harder.
+- Browser ports are not explicit. File read, save/download, confirmation, random ID generation, network fetch, request cancellation, and environment lookup should be represented as injected ports owned by the app layer. The editor/domain layer should depend on interfaces, not DOM globals or Vite globals.
+- `src/components/GpsRepairPanel.tsx` is too large and has mixed responsibilities. It combines map lifecycle, MapLibre layers/events, popup DOM construction, GPS gap row rendering, manual erase state, message group rendering, dense table pagination, and session/lap summary presentation in one 2600+ line component. This makes UI changes risky and obscures which parts are product components versus map adapter code.
+- MapLibre is embedded directly in product UI. The map implementation should be behind a `MapView`/`RouteMap` adapter component with typed props and callbacks. Product components should describe route segments, selected gaps, editable repair points, and map intents; MapLibre-specific sources/layers/popups should stay in the adapter.
+- `src/editor/activitySummary.ts` mixes domain interpretation, edit construction, profile lookup, message grouping, sorting policy, and localized string formatting. It currently returns UI-ready labels such as formatted dates, distances, and durations. That is convenient but blurs domain/service/presenter boundaries. A cleaner split is: domain selectors return typed quantities and field references; presenter/formatter services produce request-timezone strings for React.
+- Timestamp/date formatting is duplicated across `activitySummary.ts`, `viewModel.ts`, tests, and popup helpers. FIT epoch conversion and time-zone formatting should be centralized behind a small `FitTimeService`/formatter utility injected into presenters where locale/time zone matters.
+- Session/lap/GPS summary edits are in `activitySummary.ts`, while GPS repair edits live in `gpsRepair.ts`. The capability boundary is unclear. Summary-message synchronization should become a domain service such as `ActivitySummarySyncService`, while GPS gap detection/fill/erase/speed repair should sit behind a `GpsRepairService`.
+- `src/editor/gpsRepair.ts` imports route response types from `routing.ts`, coupling pure GPS edit construction to a routing-provider module. GPS repair should depend on simple route geometry value objects, not provider/service types.
+- View-model construction is fragmented. `App.tsx` derives `activitySummary`, `lapSummaries`, `sessionDataSummary`, and `messageGroups`; `useFitEditorSession.ts` derives `view`, `visibleMessages`, GPS runs, GPS route segments, issues, counts, and effective documents. The app should receive one screen model from an editor/application selector rather than composing many selector families in React.
+- `src/editor/index.ts` exports almost every editor module. This makes imports convenient but weakens module boundaries. Public API barrels should expose use-case entry points and value types, while internal helpers stay file-local or under explicit internal modules.
+- Generated/full FIT profile metadata is imported synchronously through `fit/profile.ts`, which can pull large generated artifacts into the main bundle. Before large-file and broad profile work grows, decide whether profile metadata should be chunked, lazily loaded, indexed, or moved behind a worker boundary.
+- The current edit overlay is canonical, but command semantics are still distributed across hook functions and helper modules. To support undo/redo, transactional validation, and future smart tooling, edits should be emitted by command/use-case functions with explicit inputs, dependencies, and results rather than direct `setEditOverlay` callbacks scattered through UI session code.
+
+Target layered architecture:
+
+```text
+app/
+  composition root
+  creates browser ports and injected services
+  mounts React shell
+
+services/ or editor/application/
+  use cases: open file, save file, route gap, fill gap, erase GPS, sync summaries
+  depends on domain interfaces and injected ports
+  exposes screen models and command results
+
+fit/
+  pure FIT domain: document, profile, parser, writer, raw validation, edit transactions
+  no React, DOM, fetch, Blob, URL, Vite env, MapLibre, or localStorage
+
+gps/
+  pure GPS/activity domain services if it outgrows editor
+  gap detection, route geometry, distance/speed calculations, position edits
+
+components/
+  React presentation and product components
+  receive props and callbacks, no FIT parsing/export/network construction
+
+adapters/
+  browser file/download adapter, routing HTTP adapter, MapLibre adapter, worker adapter
+```
+
+Dependency direction:
+
+```text
+components -> application/editor ports -> domain services -> fit/gps domain
+app composition -> concrete adapters -> injected ports
+domain/services -> interfaces only
+adapters -> browser/network/map libraries
+```
+
+SOLID cleanup plan:
+
+1. Extract an `EditorApplicationService` or equivalent use-case module from `useFitEditorSession.ts`.
+   - Start with pure command functions for overlay mutations: fill gap, erase GPS, place anchor, move repair point, sync session, sync laps, sync speeds, delete/duplicate/insert message.
+   - Each command should accept immutable input state and return a typed result: next overlay, next fixed repairs, issues/status, and optional side-effect request.
+   - Keep the React hook as a thin adapter that stores state and dispatches command results.
+2. Introduce explicit ports and inject them at the app composition root.
+   - `FitFilePort`: read selected file to `ArrayBuffer`.
+   - `FitDownloadPort`: save bytes with a filename.
+   - `RouteProviderPort`: route between points and return route geometry.
+   - `ConfirmPort`: confirm destructive commands.
+   - `IdGeneratorPort`: create stable unique IDs for raw/duplicate messages.
+   - `Clock/EnvironmentPort`: request time zone, API keys, and future runtime settings.
+3. Move GraphHopper and `fetch` behind a routing adapter.
+   - `editor` should request `routeGap({ profile, points })` from an injected `RouteProviderPort`.
+   - `routing.ts` can keep GraphHopper request/response parsing, but Vite env lookup and `fetch` belong in an app/adapters composition module.
+4. Split `GpsRepairPanel.tsx` into bounded UI components.
+   - `GpsRepairPanel`: page-level composition only.
+   - `RouteMap`: MapLibre adapter and map event translation.
+   - `GpsGapsOverlay`: gap list and fill/route/error actions.
+   - `MessageGroupsPanel`: grouped message navigation.
+   - `DenseMessageTable`: large message table.
+   - `FitMessageSummaryPanel`: reusable field summary row.
+   - Popup DOM creation should move into the map adapter or render as React-controlled popup content.
+5. Split activity/message summary responsibilities.
+   - `activitySummaryDomain.ts`: typed fields, distances, durations, bounds, activity identity, session/lap summary edit construction.
+   - `messageGrouping.ts`: message type grouping and dense/summary grouping policy.
+   - `fitFormatters.ts`: request-timezone date/time, duration, distance, speed, position, profile-scaled values.
+   - React components should consume formatted presenter models, while domain services return typed values where edits/calculations depend on precision.
+6. Centralize selector/view-model construction.
+   - Build one `buildMapWorkspaceModel(...)` or similar selector in the application layer that returns the complete screen model: map geometry, gap rows, session/lap/message groups, issue counts, commands enabled/disabled, and settings.
+   - `App.tsx` should not call four different FIT summary builders directly.
+7. Keep `fit` domain API narrow.
+   - Replace the broad `editor/index.ts` export style with explicit public exports.
+   - Keep low-level helpers internal unless they are stable domain API.
+   - Add import-boundary tests or lint rules later to prevent `fit -> editor/components` and `editor -> components/styles` dependencies.
+8. Prepare worker-safe use cases.
+   - Parse, export, full validation, message grouping, and large GPS calculations should be callable without React and without DOM types.
+   - This refactor should happen before more large-file features, because current selectors repeatedly walk whole documents on the UI thread.
+
+Refactor sequencing:
+
+1. No behavior change: add ports/interfaces and move browser-only helpers out of `useFitEditorSession.ts`.
+2. No behavior change: extract GPS command functions from the hook into an injected service and cover them with unit tests.
+3. No behavior change: split `GpsRepairPanel.tsx` into product components and a MapLibre adapter.
+4. No behavior change: move summary formatting/grouping out of `activitySummary.ts` into presenter modules.
+5. Add an application-level workspace model selector and simplify `App.tsx` to composition only.
+6. Add import-boundary tests or a lightweight dependency checker to preserve the layered architecture.
 
 ## Product Goal
 
@@ -210,13 +330,15 @@ Workflow rules:
 
 ## Production Architecture Direction
 
-The production target is a simple flat module structure. Keep the architecture shaped by product capability, not by speculative feature buckets:
+The production target is a clear layered structure with simple modules inside each layer. Keep the architecture shaped by product capability, not by speculative feature buckets:
 
 ```text
 src/
-  app/                 bootstrap and top-level composition
+  app/                 bootstrap, composition root, dependency wiring
   fit/                 pure FIT domain and binary logic
-  editor/              cohesive app-specific FIT editor session module
+  editor/              app-specific editor/application use cases and selectors
+  services/            injectable service implementations when a capability outgrows editor
+  adapters/            browser, network, map, and worker adapters
   components/          shared/product React component layer
   styles/              tokens, shared layout primitives, component/app styles
   generated/           generated FIT profile metadata
@@ -226,8 +348,10 @@ Layering rules:
 
 - `fit` owns FIT documents, records, definitions, fields, profile lookup, edit transactions, validation, parser, writer, CRC, and export-blocking issue classification.
 - `fit` must not import React, Radix, DOM APIs, Blob/download APIs, CSS, or browser-specific UI code.
-- `app` is bootstrap and top-level composition only.
-- `editor` owns the current FIT editor session: uploaded document, active filter, selected message, issue dialog state, canonical edit overlay, derived selectors, commands, and file/download ports. Keep it together rather than splitting it prematurely into separate filter, selection, issues, download, or similar submodules before the architecture needs them.
+- `app` is bootstrap and top-level composition only. It creates concrete browser/network/map adapters and injects them into editor/application services.
+- `editor` owns the current FIT editor application behavior: uploaded document state, active filter, selected message, issue dialog state, canonical edit overlay, derived selectors, and commands. It depends on injected ports for file read, download, routing, confirmation, ID generation, environment, and later worker execution.
+- `services` is introduced only for real capability boundaries that need dependency injection or reuse outside React, such as GPS repair, route fixing, activity summary synchronization, and export orchestration. Services depend on domain interfaces and ports, not concrete browser APIs.
+- `adapters` owns concrete side-effect implementations: DOM file/download, HTTP route provider, MapLibre integration, worker bridge, and runtime environment lookup.
 - `components` is the shared/product React component layer. Wrap reusable UI patterns there once so app/editor code stays readable and consistent.
 - `styles` owns tokens, shared layout primitives, and component/app styles.
 - Do not introduce placeholder modules like `insights` unless the product has a real capability boundary that needs them.
@@ -237,15 +361,15 @@ Canonical production flow:
 
 ```text
 upload file
-  -> file port reads ArrayBuffer
+  -> injected file port reads ArrayBuffer
   -> fit parser creates FitDocument
-  -> editor session stores FitDocument + FitEditOverlay
-  -> selectors derive issues, counts, filters, quick-card models
-  -> editor stages local draft
-  -> Apply emits edit transaction into FitEditOverlay
-  -> Download runs full validation
+  -> editor/application state stores FitDocument + FitEditOverlay
+  -> selectors derive issues, counts, filters, map workspace model, message groups
+  -> user command calls injected application service
+  -> service emits edit transaction/result into FitEditOverlay
+  -> Save runs full validation
   -> fit writer exports corrected bytes
-  -> file port creates browser download
+  -> injected download port creates browser save
 ```
 
 Near-term architecture priorities:
@@ -254,10 +378,11 @@ Near-term architecture priorities:
 2. Keep the canonical `src/editor/editOverlay.ts` transaction model as the single live edit surface for field edits, added fields, added developer fields, added messages, duplicate, and delete.
    Loaded-document messages remain immutable source plus overlay deltas; inserted messages own their canonical current overlay snapshot after creation.
 3. Centralize typed validation issues with `scope`, `code`, `severity`, target IDs, and export-blocking classification.
-4. Extract editor session state, selectors, and file/download side effects out of `App.tsx` into `editor`, leaving `app` as composition.
+4. Extract editor session state and selectors out of `App.tsx`, leaving `app` as composition.
 5. Keep the editor session cohesive inside `editor` while moving reusable presentational pieces into `components`.
 6. Legacy parser path retirement is complete.
-7. Add worker-ready boundaries for parse/export/full validation before adding broader capability modules.
+7. Add injected ports for file, download, routing, confirmation, ID generation, environment, and worker execution.
+8. Add worker-ready boundaries for parse/export/full validation before adding broader capability modules.
 
 ## Screen States
 
@@ -571,7 +696,9 @@ Exact TypeScript shapes may change during architecture, this is an example.
 - Stabilize the public `fit` domain API around the retired legacy edit-set and the canonical `src/editor/editOverlay.ts` model.
 - Introduce one canonical edit overlay/transaction model for field edits, added fields, added developer fields, added messages, duplicate, and delete.
 - Centralize typed validation issues and export-blocking classification.
-- Extract app session state, selectors, and browser file/download ports out of `App.tsx` into `app` and `editor`.
+- Extract app session state and selectors out of `App.tsx` into editor/application modules.
+- Add explicit injected ports for browser file read, browser save/download, route provider, confirmation, ID generation, runtime environment, and future worker execution.
+- Move browser side effects out of `src/editor/useFitEditorSession.ts`; the hook should adapt service results into React state, not construct DOM/network/runtime dependencies directly.
 - Keep the prototype-aligned UI intact while consolidating reusable presentation in `components`.
 - Retire or archive the legacy parser path so production code uses one FIT document model.
 - Prepare parse/export/full validation boundaries for Web Worker execution.

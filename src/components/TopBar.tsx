@@ -1,5 +1,5 @@
 import type { RefObject } from "react";
-import { Download, FileCode2, Upload } from "lucide-react";
+import { FileCode2, FolderOpen, Save } from "lucide-react";
 import {
   appIcon,
   brandGroup,
@@ -21,10 +21,10 @@ interface TopBarProps {
   loaded: boolean;
   issueCount: number;
   editCount: number;
-  onUpload: () => void;
-  onDownload: () => void;
+  onOpenFile: () => void;
+  onSave: () => void;
   onOpenIssues: () => void;
-  uploadButtonRef: RefObject<HTMLButtonElement | null>;
+  openButtonRef: RefObject<HTMLButtonElement | null>;
 }
 
 export function TopBar({
@@ -33,10 +33,10 @@ export function TopBar({
   loaded,
   issueCount,
   editCount,
-  onUpload,
-  onDownload,
+  onOpenFile,
+  onSave,
   onOpenIssues,
-  uploadButtonRef,
+  openButtonRef,
 }: TopBarProps) {
   return (
     <header className={topbar}>
@@ -68,19 +68,19 @@ export function TopBar({
           </span>
         ) : null}
         {loaded ? (
-          <button className={primaryButton} type="button" onClick={onDownload}>
-            <Download size={17} aria-hidden="true" />
-            <span>Download</span>
+          <button className={primaryButton} type="button" onClick={onSave}>
+            <Save size={17} aria-hidden="true" />
+            <span>Save</span>
           </button>
         ) : null}
         <button
-          ref={uploadButtonRef}
+          ref={openButtonRef}
           className={loaded ? secondaryButton : primaryButton}
           type="button"
-          onClick={onUpload}
+          onClick={onOpenFile}
         >
-          <Upload size={17} aria-hidden="true" />
-          <span>Upload</span>
+          <FolderOpen size={17} aria-hidden="true" />
+          <span>Open</span>
         </button>
       </div>
     </header>

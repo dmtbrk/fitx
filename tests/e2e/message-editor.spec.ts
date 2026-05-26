@@ -58,11 +58,11 @@ test("message editor stages cancel and apply behavior", async ({ page }) => {
   await expect(page.getByRole("button", { name: /^Issues\s*1$/ })).toBeVisible();
 
   await closeMessages(page);
-  await page.getByRole("button", { name: "Download" }).click();
+  await page.getByRole("button", { name: "Save" }).click();
   const issuesDialog = page.getByRole("dialog", { name: "Issues" });
   await expect(issuesDialog).toBeVisible();
   await expect(issuesDialog.locator("article")).toHaveCount(1);
-  await expect(page.getByRole("button", { name: "Download anyway" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Save anyway" })).toHaveCount(0);
 });
 
 test("duplicate message opens the editor, cancels without committing, and exports after apply", async ({ page }) => {
@@ -122,7 +122,7 @@ test("duplicate message opens the editor, cancels without committing, and export
 
   await closeMessages(page);
   const downloadPromise = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Download" }).click();
+  await page.getByRole("button", { name: "Save" }).click();
   const download = await downloadPromise;
   const downloadedPath = await download.path();
   expect(downloadedPath).not.toBeNull();
@@ -149,11 +149,11 @@ test("duplicate message opens the editor, cancels without committing, and export
   await expect(page.getByRole("button", { name: /^Issues\s*1$/ })).toBeVisible();
 
   await closeMessages(page);
-  await page.getByRole("button", { name: "Download" }).click();
+  await page.getByRole("button", { name: "Save" }).click();
   const issuesDialog = page.getByRole("dialog", { name: "Issues" });
   await expect(issuesDialog).toBeVisible();
   await expect(issuesDialog.locator("article")).toHaveCount(1);
-  await expect(page.getByRole("button", { name: "Download anyway" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Save anyway" })).toHaveCount(0);
 
   expect(exportedDocument.messages).toHaveLength(originalDocument.messages.length + 1);
   expect(exportedDocument.messages[0]?.messageName).toBe(sourceMessageName);
@@ -214,7 +214,7 @@ test("raw inserted message reopens without duplicating existing added fields", a
 
   await closeMessages(page);
   const downloadPromise = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Download" }).click();
+  await page.getByRole("button", { name: "Save" }).click();
   const download = await downloadPromise;
   const downloadedPath = await download.path();
   expect(downloadedPath).not.toBeNull();
@@ -376,7 +376,7 @@ test("raw add message cancels without committing and then inserts between messag
 
   await closeMessages(page);
   const downloadPromise = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Download" }).click();
+  await page.getByRole("button", { name: "Save" }).click();
   const download = await downloadPromise;
   const downloadedPath = await download.path();
   expect(downloadedPath).not.toBeNull();
@@ -467,7 +467,7 @@ test("message deletion confirms, updates counts, restores focus, and exports wit
 
   await closeMessages(page);
   const downloadPromise = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Download" }).click();
+  await page.getByRole("button", { name: "Save" }).click();
   const download = await downloadPromise;
   const downloadedPath = await download.path();
   expect(downloadedPath).not.toBeNull();

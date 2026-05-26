@@ -381,8 +381,13 @@ function serializeDataRecord(
     if (field.size !== fieldDefinition.size) {
       throw new Error(`Cannot write data record ${record.id}; field ${field.number} size does not match its definition.`);
     }
-    const edit = getFieldEditValue(record, field, edits);
-    encodeFieldValue(view, offset, field, edit ?? field.rawValue, definition.littleEndian);
+    encodeFieldValue(
+      view,
+      offset,
+      field,
+      getFieldWriteValue(record, field, edits),
+      definition.littleEndian,
+    );
     offset += fieldDefinition.size;
   }
 
@@ -409,8 +414,13 @@ function serializeDataRecord(
     if (field.size !== fieldDefinition.size) {
       throw new Error(`Cannot write data record ${record.id}; developer field ${field.number} size does not match its definition.`);
     }
-    const edit = getFieldEditValue(record, field, edits);
-    encodeFieldValue(view, offset, field, edit ?? field.rawValue, definition.littleEndian);
+    encodeFieldValue(
+      view,
+      offset,
+      field,
+      getFieldWriteValue(record, field, edits),
+      definition.littleEndian,
+    );
     offset += fieldDefinition.size;
   }
 
@@ -548,15 +558,22 @@ function collectInsertedMessageAnchorIds(insertedMessage: FitInsertedMessage): s
   return anchorIds;
 }
 
-function getFieldEditValue(record: FitDataRecord, field: FitField, edits: PreparedFieldEdits): FitValue | undefined {
-  const byFieldId = edits.byFieldId.get(field.id);
-  if (byFieldId !== undefined) {
-    return byFieldId;
+function getFieldWriteValue(record: FitDataRecord, field: FitField, edits: PreparedFieldEdits): FitValue {
+  if (edits.byFieldId.has(field.id)) {
+    return edits.byFieldId.get(field.id) ?? null;
   }
 
-  return edits.byMessageFieldKey.get(
-    makeFieldEditKey(record.id, field.number, field.developer, field.developer ? field.developerDataIndex : undefined)
+  const fieldKey = makeFieldEditKey(
+    record.id,
+    field.number,
+    field.developer,
+    field.developer ? field.developerDataIndex : undefined,
   );
+  if (edits.byMessageFieldKey.has(fieldKey)) {
+    return edits.byMessageFieldKey.get(fieldKey) ?? null;
+  }
+
+  return field.rawValue;
 }
 
 function indexNormalFields(record: FitDataRecord): ReadonlyMap<number, FitField> {

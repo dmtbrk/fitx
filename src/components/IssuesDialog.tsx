@@ -21,19 +21,19 @@ import {
 interface IssuesDialogProps {
   open: boolean;
   issues: readonly FitEditorIssue[];
-  showDownloadAction: boolean;
+  showSaveAction: boolean;
   onClose: () => void;
   onShowIssues?: () => void;
-  onDownloadAnyway: () => void;
+  onSaveAnyway: () => void;
 }
 
 export function IssuesDialog({
   open,
   issues,
-  showDownloadAction,
+  showSaveAction,
   onClose,
   onShowIssues,
-  onDownloadAnyway,
+  onSaveAnyway,
 }: IssuesDialogProps) {
   return (
     <Dialog.Root
@@ -102,13 +102,13 @@ export function IssuesDialog({
           </div>
           <div className={dialogFooter}>
             <Dialog.Close className={button}>Keep editing</Dialog.Close>
-            {showDownloadAction ? (
+            {showSaveAction ? (
               <button
                 className={primaryButton}
                 type="button"
-                onClick={onDownloadAnyway}
+                onClick={onSaveAnyway}
               >
-                Download anyway
+                Save anyway
               </button>
             ) : null}
           </div>

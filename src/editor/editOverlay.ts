@@ -282,13 +282,30 @@ export function stageEditsIntoOverlay(
   overlay: FitEditOverlay,
   edits: readonly FitFieldValueEdit[],
 ): FitEditOverlay {
-  let nextOverlay = overlay;
-
-  for (const edit of edits) {
-    nextOverlay = stageOverlayEdit(nextOverlay, edit);
+  if (edits.length === 0) {
+    return overlay;
   }
 
-  return nextOverlay;
+  const messages = new Map(overlay.messages);
+  const deletedMessageIds = new Set(overlay.deletedMessageIds);
+  const insertedMessages = new Map(overlay.insertedMessages);
+  const editsByMessageId = new Map<string, FitFieldValueEdit[]>();
+
+  for (const edit of edits) {
+    deletedMessageIds.delete(edit.messageId);
+    const messageEdits = editsByMessageId.get(edit.messageId) ?? [];
+    messageEdits.push(edit);
+    editsByMessageId.set(edit.messageId, messageEdits);
+  }
+
+  for (const [messageId, messageEdits] of editsByMessageId) {
+    messages.set(
+      messageId,
+      stageMessageEdits(messages.get(messageId), messageId, messageEdits),
+    );
+  }
+
+  return { messages, deletedMessageIds, insertedMessages };
 }
 
 function stageOverlayEdit(
@@ -332,6 +349,23 @@ function stageMessageEdit(
   stageEntry(entries, edit);
   return {
     messageId: message.messageId,
+    edits: entries,
+  };
+}
+
+function stageMessageEdits(
+  message: FitEditOverlayMessage | undefined,
+  messageId: string,
+  edits: readonly FitFieldValueEdit[],
+): FitEditOverlayMessage {
+  const entries = message ? [...message.edits] : [];
+
+  for (const edit of edits) {
+    stageEntry(entries, edit);
+  }
+
+  return {
+    messageId,
     edits: entries,
   };
 }

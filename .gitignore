@@ -5,3 +5,5 @@ test-results/
 .env.local
 npm-debug.log*
 .DS_Store
+/*.fit
+.ai/legacy/

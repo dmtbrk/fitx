@@ -3,17 +3,19 @@
 import { constants as fsConstants } from "node:fs";
 import { access, readFile, writeFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
+import { inflateRawSync } from "node:zlib";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const DEFAULT_OUTPUT = path.resolve("src/generated/fitProfile.generated.ts");
 const DEFAULT_GENERATED_AT = "1970-01-01T00:00:00.000Z";
 const DEFAULT_GENERATOR_VERSION = "canonical-json-0";
+const WORKBOOK_GENERATOR_VERSION = "profile-xlsx-0";
 const WORKBOOK_EXTENSIONS = new Set([".xls", ".xlsx", ".xlsm"]);
 export const FIT_PROFILE_GENERATOR_USAGE = [
-  "Usage: node scripts/generate-fit-profile.mjs [--generated-at ISO-8601] /path/to/profile.json [output-file]",
-  "Canonical JSON profile input is supported now.",
-  "Garmin workbook inputs will be added later as an optional extension."
+  "Usage: node scripts/generate-fit-profile.mjs [--generated-at ISO-8601] /path/to/Profile.xlsx [output-file]",
+  "Canonical JSON profile input remains supported.",
+  "Garmin Profile.xlsx workbook input is supported for full FIT profile generation."
 ].join(" ");
 
 export async function buildGeneratedProfileArtifact({ inputPath, generatedAt } = {}) {
@@ -23,25 +25,25 @@ export async function buildGeneratedProfileArtifact({ inputPath, generatedAt } =
 
   const resolvedInputPath = path.resolve(inputPath);
   const inputExtension = path.extname(resolvedInputPath).toLowerCase();
-  if (WORKBOOK_EXTENSIONS.has(inputExtension)) {
-    throw new Error(
-      [
-        `Workbook inputs are not supported yet: ${resolvedInputPath}`,
-        "This generator currently accepts canonical JSON profile input only.",
-        "Convert the Garmin profile to JSON first, or wait for the later Profile.xlsx parsing extension."
-      ].join(" ")
-    );
-  }
+  const isWorkbook = WORKBOOK_EXTENSIONS.has(inputExtension);
 
-  await ensureFileExists(resolvedInputPath, `FIT profile JSON not found: ${resolvedInputPath}`);
+  await ensureFileExists(
+    resolvedInputPath,
+    isWorkbook
+      ? `FIT profile workbook not found: ${resolvedInputPath}`
+      : `FIT profile JSON not found: ${resolvedInputPath}`,
+  );
 
-  const rawInput = await readFile(resolvedInputPath, "utf8");
-  const profile = parseCanonicalProfileJson(rawInput, resolvedInputPath);
+  const input = await readFile(resolvedInputPath);
+  const rawInput = input.toString("utf8");
+  const profile = isWorkbook
+    ? parseProfileWorkbook(input, resolvedInputPath)
+    : parseCanonicalProfileJson(rawInput, resolvedInputPath);
   const generated = normalizeProfile(
     profile,
     resolvedInputPath,
     generatedAt,
-    sha256(rawInput),
+    sha256(input),
   );
   return emitGeneratedProfile(generated);
 }
@@ -124,6 +126,376 @@ function parseCanonicalProfileJson(rawInput, filePath) {
 
   return parsed;
 }
+
+function parseProfileWorkbook(input, filePath) {
+  const workbook = readXlsxWorkbook(input, filePath);
+  const typeRows = workbook.sheets.get("Types");
+  const messageRows = workbook.sheets.get("Messages");
+
+  if (!typeRows) {
+    throw new Error("Garmin Profile.xlsx must include a Types worksheet.");
+  }
+  if (!messageRows) {
+    throw new Error("Garmin Profile.xlsx must include a Messages worksheet.");
+  }
+
+  const types = parseWorkbookTypes(typeRows);
+  const messages = parseWorkbookMessages(messageRows, types);
+
+  return {
+    source: {
+      generatorVersion: WORKBOOK_GENERATOR_VERSION,
+      generatedAt: DEFAULT_GENERATED_AT,
+      workbookPath: path.basename(filePath),
+      workbookSha256: "computed",
+      sdkRelease: "unavailable"
+    },
+    types,
+    messages
+  };
+}
+
+function parseWorkbookTypes(rows) {
+  const types = [];
+  let currentType;
+
+  for (const row of rows.slice(1)) {
+    const typeName = cleanCell(row.A);
+    const baseType = cleanCell(row.B);
+    const valueName = cleanCell(row.C);
+    const value = cleanCell(row.D);
+    const comment = cleanCell(row.E);
+
+    if (typeName && baseType) {
+      const primitive = resolvePrimitiveType(baseType);
+      currentType = {
+        name: typeName,
+        baseType,
+        size: primitive.size,
+        signed: primitive.signed,
+        values: []
+      };
+      types.push(currentType);
+    }
+
+    if (currentType && valueName && value) {
+      const parsedValue = parseWorkbookEnumValue(value);
+      if (currentType.values.some((existing) => existing.value === parsedValue)) {
+        continue;
+      }
+      currentType.values.push(orderedObject({
+        value: parsedValue,
+        name: valueName,
+        comment: comment || undefined
+      }));
+    }
+  }
+
+  return types;
+}
+
+function parseWorkbookMessages(rows, types) {
+  const typesByName = new Map(types.map((type) => [type.name, type]));
+  const messageNumbers = new Map(
+    typesByName.get("mesg_num")?.values
+      .filter((value) => typeof value.value === "number")
+      .map((value) => [value.name, value.value]) ?? [],
+  );
+  const messages = [];
+  let currentMessage;
+
+  for (const row of rows.slice(1)) {
+    const messageName = cleanCell(row.A);
+    const fieldNumber = cleanCell(row.B);
+    const fieldName = cleanCell(row.C);
+    const fieldType = cleanCell(row.D);
+
+    if (messageName && !fieldNumber && !fieldName) {
+      const number = messageNumbers.get(messageName);
+      if (number === undefined) {
+        currentMessage = undefined;
+        continue;
+      }
+      currentMessage = {
+        number,
+        name: messageName,
+        comment: cleanCell(row.N) || undefined,
+        fields: []
+      };
+      messages.push(currentMessage);
+      continue;
+    }
+
+    if (!currentMessage || !fieldNumber || !fieldName || !fieldType) {
+      continue;
+    }
+
+    const parsedFieldNumber = parseWorkbookInteger(fieldNumber);
+    if (!Number.isInteger(parsedFieldNumber) || parsedFieldNumber < 0 || parsedFieldNumber > 255) {
+      continue;
+    }
+
+    const fieldTypeMetadata = typesByName.get(fieldType);
+    const primitive = resolvePrimitiveType(fieldTypeMetadata?.baseType ?? fieldType);
+    const values = fieldTypeMetadata?.values ?? [];
+    currentMessage.fields.push(orderedObject({
+      number: parsedFieldNumber,
+      name: fieldName,
+      baseType: fieldTypeMetadata?.baseType ?? fieldType,
+      size: primitive.size,
+      type: fieldType,
+      scale: parseOptionalWorkbookNumber(row.G),
+      offset: parseOptionalWorkbookNumber(row.H),
+      units: cleanCell(row.I) || undefined,
+      values,
+      components: parseWorkbookComponents(row),
+      comment: cleanCell(row.N) || undefined
+    }));
+  }
+
+  return messages;
+}
+
+function parseWorkbookComponents(row) {
+  const components = splitWorkbookList(row.F);
+  if (components.length === 0) {
+    return undefined;
+  }
+
+  return undefined;
+}
+
+function readXlsxWorkbook(input, filePath) {
+  const archive = readZipEntries(input);
+  const sharedStrings = parseSharedStrings(readZipText(archive, "xl/sharedStrings.xml"));
+  const workbookXml = readZipText(archive, "xl/workbook.xml");
+  const relsXml = readZipText(archive, "xl/_rels/workbook.xml.rels");
+  const relations = parseWorkbookRelationships(relsXml);
+  const sheets = new Map();
+
+  for (const sheet of parseWorkbookSheets(workbookXml)) {
+    const target = relations.get(sheet.relationshipId);
+    if (!target) {
+      throw new Error(`Unable to resolve worksheet relationship ${sheet.relationshipId} in ${filePath}`);
+    }
+    const sheetPath = normalizeWorkbookTarget(target);
+    sheets.set(sheet.name, parseWorksheetRows(readZipText(archive, sheetPath), sharedStrings));
+  }
+
+  return { sheets };
+}
+
+function readZipEntries(input) {
+  const entries = new Map();
+  const eocdOffset = findEndOfCentralDirectory(input);
+  const entryCount = input.readUInt16LE(eocdOffset + 10);
+  let offset = input.readUInt32LE(eocdOffset + 16);
+
+  for (let index = 0; index < entryCount; index += 1) {
+    if (input.readUInt32LE(offset) !== 0x02014b50) {
+      throw new Error("Invalid ZIP central directory in FIT profile workbook.");
+    }
+
+    const compressionMethod = input.readUInt16LE(offset + 10);
+    const compressedSize = input.readUInt32LE(offset + 20);
+    const fileNameLength = input.readUInt16LE(offset + 28);
+    const extraLength = input.readUInt16LE(offset + 30);
+    const commentLength = input.readUInt16LE(offset + 32);
+    const localHeaderOffset = input.readUInt32LE(offset + 42);
+    const name = input.slice(offset + 46, offset + 46 + fileNameLength).toString("utf8");
+    const localFileNameLength = input.readUInt16LE(localHeaderOffset + 26);
+    const localExtraLength = input.readUInt16LE(localHeaderOffset + 28);
+    const dataOffset = localHeaderOffset + 30 + localFileNameLength + localExtraLength;
+    const compressed = input.slice(dataOffset, dataOffset + compressedSize);
+    const content = compressionMethod === 8
+      ? inflateRawSync(compressed)
+      : compressionMethod === 0
+        ? compressed
+        : undefined;
+
+    if (!content) {
+      throw new Error(`Unsupported ZIP compression method ${compressionMethod} for ${name}.`);
+    }
+
+    entries.set(name, content);
+    offset += 46 + fileNameLength + extraLength + commentLength;
+  }
+
+  return entries;
+}
+
+function findEndOfCentralDirectory(input) {
+  const minOffset = Math.max(0, input.length - 0xFFFF - 22);
+  for (let offset = input.length - 22; offset >= minOffset; offset -= 1) {
+    if (input.readUInt32LE(offset) === 0x06054b50) {
+      return offset;
+    }
+  }
+
+  throw new Error("Invalid ZIP workbook: end of central directory not found.");
+}
+
+function readZipText(archive, name) {
+  const content = archive.get(name);
+  if (!content) {
+    throw new Error(`Missing workbook entry: ${name}`);
+  }
+  return content.toString("utf8");
+}
+
+function parseWorkbookRelationships(xml) {
+  const relationships = new Map();
+  for (const match of xml.matchAll(/<Relationship\b([^>]*)\/>/g)) {
+    const attrs = parseXmlAttributes(match[1]);
+    if (attrs.Id && attrs.Target) {
+      relationships.set(attrs.Id, attrs.Target);
+    }
+  }
+  return relationships;
+}
+
+function parseWorkbookSheets(xml) {
+  return [...xml.matchAll(/<x:sheet\b([^>]*)\/>/g)].map((match) => {
+    const attrs = parseXmlAttributes(match[1]);
+    return {
+      name: attrs.name,
+      relationshipId: attrs["r:id"]
+    };
+  }).filter((sheet) => sheet.name && sheet.relationshipId);
+}
+
+function normalizeWorkbookTarget(target) {
+  if (target.startsWith("/")) {
+    return target.slice(1);
+  }
+  if (target.startsWith("xl/")) {
+    return target;
+  }
+  return `xl/${target}`;
+}
+
+function parseSharedStrings(xml) {
+  return [...xml.matchAll(/<x:si>(.*?)<\/x:si>/gs)].map((match) => (
+    [...match[1].matchAll(/<x:t\b[^>]*>(.*?)<\/x:t>/gs)]
+      .map((text) => decodeXml(text[1]))
+      .join("")
+  ));
+}
+
+function parseWorksheetRows(xml, sharedStrings) {
+  const rows = [];
+  for (const rowMatch of xml.matchAll(/<x:row\b[^>]*>(.*?)<\/x:row>/gs)) {
+    const row = {};
+    for (const cellMatch of rowMatch[1].matchAll(/<x:c\b([^>]*)>(.*?)<\/x:c>/gs)) {
+      const attrs = parseXmlAttributes(cellMatch[1]);
+      const column = attrs.r?.match(/^[A-Z]+/)?.[0];
+      if (!column) {
+        continue;
+      }
+      row[column] = parseWorksheetCellValue(cellMatch[2], attrs, sharedStrings);
+    }
+    rows.push(row);
+  }
+  return rows;
+}
+
+function parseWorksheetCellValue(xml, attrs, sharedStrings) {
+  if (attrs.t === "s") {
+    const index = Number(xml.match(/<x:v>(.*?)<\/x:v>/s)?.[1]);
+    return sharedStrings[index] ?? "";
+  }
+
+  if (attrs.t === "inlineStr") {
+    return [...xml.matchAll(/<x:t\b[^>]*>(.*?)<\/x:t>/gs)]
+      .map((match) => decodeXml(match[1]))
+      .join("");
+  }
+
+  return decodeXml(xml.match(/<x:v>(.*?)<\/x:v>/s)?.[1] ?? "");
+}
+
+function parseXmlAttributes(rawAttributes) {
+  return Object.fromEntries(
+    [...rawAttributes.matchAll(/([:\w]+)="([^"]*)"/g)].map((match) => [match[1], decodeXml(match[2])]),
+  );
+}
+
+function decodeXml(value) {
+  return String(value)
+    .replace(/&#x([0-9a-f]+);/gi, (_, hex) => String.fromCodePoint(Number.parseInt(hex, 16)))
+    .replace(/&#(\d+);/g, (_, decimal) => String.fromCodePoint(Number.parseInt(decimal, 10)))
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, "\"")
+    .replace(/&apos;/g, "'")
+    .replace(/&amp;/g, "&");
+}
+
+function cleanCell(value) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function splitWorkbookList(value) {
+  const trimmed = cleanCell(value);
+  return trimmed.length > 0
+    ? trimmed.split(",").map((entry) => entry.trim()).filter((entry) => entry.length > 0)
+    : [];
+}
+
+function parseWorkbookEnumValue(value) {
+  const parsed = parseWorkbookInteger(value);
+  return Number.isInteger(parsed) ? parsed : cleanCell(value);
+}
+
+function parseWorkbookInteger(value) {
+  const trimmed = cleanCell(value);
+  if (/^0x[0-9a-f]+$/i.test(trimmed)) {
+    return Number.parseInt(trimmed, 16);
+  }
+  if (/^-?\d+$/.test(trimmed)) {
+    return Number.parseInt(trimmed, 10);
+  }
+  return undefined;
+}
+
+function parseOptionalWorkbookNumber(value) {
+  const trimmed = cleanCell(value);
+  if (trimmed.length === 0 || trimmed.includes(",")) {
+    return undefined;
+  }
+
+  const parsed = Number(trimmed);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function resolvePrimitiveType(typeName) {
+  const primitive = PRIMITIVE_TYPES.get(typeName);
+  if (!primitive) {
+    throw new Error(`Unsupported FIT primitive base type: ${typeName}`);
+  }
+  return primitive;
+}
+
+const PRIMITIVE_TYPES = new Map([
+  ["enum", { size: 1, signed: false }],
+  ["bool", { size: 1, signed: false }],
+  ["sint8", { size: 1, signed: true }],
+  ["uint8", { size: 1, signed: false }],
+  ["sint16", { size: 2, signed: true }],
+  ["uint16", { size: 2, signed: false }],
+  ["sint32", { size: 4, signed: true }],
+  ["uint32", { size: 4, signed: false }],
+  ["string", { size: 1, signed: false }],
+  ["float32", { size: 4, signed: true }],
+  ["float64", { size: 8, signed: true }],
+  ["uint8z", { size: 1, signed: false }],
+  ["uint16z", { size: 2, signed: false }],
+  ["uint32z", { size: 4, signed: false }],
+  ["byte", { size: 1, signed: false }],
+  ["sint64", { size: 8, signed: true }],
+  ["uint64", { size: 8, signed: false }],
+  ["uint64z", { size: 8, signed: false }]
+]);
 
 function normalizeProfile(profile, inputPath, overrideGeneratedAt, inputSha256) {
   const source = isPlainObject(profile.source) ? profile.source : {};

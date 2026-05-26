@@ -14,6 +14,7 @@ import {
   isMessageDeleted,
   markMessageDeleted,
   replaceMessageEdits,
+  stageEditsIntoOverlay,
 } from "./editOverlay";
 import type { FitDataRecord, FitField, FitFieldValueEdit } from "../fit";
 
@@ -114,6 +115,61 @@ describe("fit editor overlay", () => {
       new Set(["message-1", "message-2"]),
     );
     expect(countEditOverlayEdits(next)).toBe(2);
+  });
+
+  it("stages batches of field edits across messages without changing edit semantics", () => {
+    const original = markMessageDeleted(
+      buildEditOverlay([
+        {
+          messageId: "message-1",
+          fieldNumber: 1,
+          value: 10,
+        },
+      ]),
+      "message-2",
+    );
+    const edits: FitFieldValueEdit[] = [
+      {
+        messageId: "message-1",
+        fieldNumber: 1,
+        value: 11,
+      },
+      {
+        messageId: "message-1",
+        fieldNumber: 2,
+        value: 12,
+      },
+      {
+        messageId: "message-2",
+        fieldNumber: 3,
+        value: 13,
+      },
+    ];
+
+    const next = stageEditsIntoOverlay(original, edits);
+
+    expect(flattenEditOverlay(next)).toEqual(edits);
+    expect(getEditsForMessage(next, "message-1")).toEqual([
+      {
+        messageId: "message-1",
+        fieldNumber: 1,
+        value: 11,
+      },
+      {
+        messageId: "message-1",
+        fieldNumber: 2,
+        value: 12,
+      },
+    ]);
+    expect(getEditsForMessage(next, "message-2")).toEqual([
+      {
+        messageId: "message-2",
+        fieldNumber: 3,
+        value: 13,
+      },
+    ]);
+    expect(isMessageDeleted(next, "message-2")).toBe(false);
+    expect(countEditOverlayEdits(next)).toBe(3);
   });
 
   it("counts inserted duplicates as one edit and marks the inserted message as edited", () => {

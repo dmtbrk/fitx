@@ -2,6 +2,7 @@ import path from "node:path";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
+import { deflateRawSync } from "node:zlib";
 import { describe, expect, it } from "vitest";
 import {
   FIT_PROFILE_GENERATOR_USAGE,
@@ -39,18 +40,31 @@ describe("fit profile generator", () => {
     expect(first).toContain('"comment": "FIT file purpose."');
   });
 
-  it("rejects workbook inputs with actionable copy", async () => {
-    const workbookPath = path.join(path.dirname(fixturePath), "Profile.xlsx");
+  it("emits a TypeScript artifact from Garmin Profile.xlsx workbook input", async () => {
+    const tempDirectory = await mkdtemp(path.join(tmpdir(), "fitx-profile-"));
+    const workbookPath = path.join(tempDirectory, "Profile.xlsx");
 
-    await expect(buildGeneratedProfileArtifact({ inputPath: workbookPath })).rejects.toThrow(
-      "Workbook inputs are not supported yet"
-    );
-    await expect(buildGeneratedProfileArtifact({ inputPath: workbookPath })).rejects.toThrow(
-      "canonical JSON profile input only"
-    );
-    await expect(buildGeneratedProfileArtifact({ inputPath: workbookPath })).rejects.toThrow(
-      "Profile.xlsx parsing"
-    );
+    try {
+      await writeFile(workbookPath, createWorkbookFixture());
+
+      const generated = await buildGeneratedProfileArtifact({
+        inputPath: workbookPath,
+        generatedAt: "2026-01-02T03:04:05.000Z"
+      });
+
+      expect(generated).toContain('"generatorVersion": "profile-xlsx-0"');
+      expect(generated).toContain('"workbookPath": "Profile.xlsx"');
+      expect(generated).toMatch(/"workbookSha256": "[a-f0-9]{64}"/);
+      expect(generated).toContain('"number": 19');
+      expect(generated).toContain('"name": "lap"');
+      expect(generated).toContain('"name": "start_position_lat"');
+      expect(generated).toContain('"type": "semicircles"');
+      expect(generated).toContain('"scale": 100');
+      expect(generated).toContain('"units": "m"');
+      expect(generated).not.toContain('"name": "running_product"');
+    } finally {
+      await rm(tempDirectory, { recursive: true, force: true });
+    }
   });
 
   it("rejects duplicate message and field numbers", async () => {
@@ -503,6 +517,164 @@ describe("fit profile generator", () => {
       positionals: []
     });
     expect(FIT_PROFILE_GENERATOR_USAGE).toContain("Usage: node scripts/generate-fit-profile.mjs");
-    expect(FIT_PROFILE_GENERATOR_USAGE).toContain("Canonical JSON profile input is supported now.");
+    expect(FIT_PROFILE_GENERATOR_USAGE).toContain("Garmin Profile.xlsx workbook input is supported");
   });
 });
+
+function createWorkbookFixture() {
+  const files = new Map([
+    [
+      "xl/workbook.xml",
+      `<?xml version="1.0" encoding="utf-8"?>
+      <x:workbook xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:x="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+        <x:sheets>
+          <x:sheet name="Types" sheetId="1" r:id="rId1" />
+          <x:sheet name="Messages" sheetId="2" r:id="rId2" />
+        </x:sheets>
+      </x:workbook>`
+    ],
+    [
+      "xl/_rels/workbook.xml.rels",
+      `<?xml version="1.0" encoding="utf-8"?>
+      <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+        <Relationship Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="/xl/worksheets/sheet1.xml" Id="rId1" />
+        <Relationship Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="/xl/worksheets/sheet2.xml" Id="rId2" />
+      </Relationships>`
+    ],
+    [
+      "xl/sharedStrings.xml",
+      `<?xml version="1.0" encoding="utf-8"?>
+      <x:sst xmlns:x="http://schemas.openxmlformats.org/spreadsheetml/2006/main" />`
+    ],
+    [
+      "xl/worksheets/sheet1.xml",
+      createWorksheet([
+        ["Type Name", "Base Type", "Value Name", "Value", "Comment"],
+        ["mesg_num", "uint16", "", "", ""],
+        ["", "", "file_id", "0", ""],
+        ["", "", "lap", "19", ""],
+        ["date_time", "uint32", "", "", ""],
+        ["semicircles", "sint32", "", "", ""],
+        ["uint32", "uint32", "", "", ""],
+        ["uint16", "uint16", "", "", ""],
+        ["sport", "enum", "", "", ""],
+        ["", "", "running", "1", "Run sport"]
+      ])
+    ],
+    [
+      "xl/worksheets/sheet2.xml",
+      createWorksheet([
+        [
+          "Message Name",
+          "Field Def #",
+          "Field Name",
+          "Field Type",
+          "Array",
+          "Components",
+          "Scale",
+          "Offset",
+          "Units",
+          "Bits",
+          "Accumulate",
+          "Ref Field Name",
+          "Ref Field Value",
+          "Comment",
+          "Products:",
+          "EXAMPLE"
+        ],
+        ["file_id", "", "", "", "", "", "", "", "", "", "", "", "", "Must be first message in file.", "", ""],
+        ["", "0", "type", "uint16", "", "", "", "", "", "", "", "", "", "", "", ""],
+        ["", "4", "time_created", "date_time", "", "", "", "", "s", "", "", "", "", "Creation time.", "", ""],
+        ["lap", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""],
+        ["", "253", "timestamp", "date_time", "", "", "", "", "s", "", "", "", "", "", "", ""],
+        ["", "3", "start_position_lat", "semicircles", "", "", "", "", "semicircles", "", "", "", "", "", "", ""],
+        ["", "9", "total_distance", "uint32", "", "", "100", "", "m", "", "", "", "", "", "", ""],
+        ["", "25", "sport", "sport", "", "", "", "", "", "", "", "", "", "", "", ""],
+        ["", "", "running_product", "uint16", "", "", "", "", "", "", "", "sport", "running", "", "", ""]
+      ])
+    ]
+  ]);
+
+  return createZip(files);
+}
+
+function createWorksheet(rows) {
+  return `<?xml version="1.0" encoding="utf-8"?>
+  <x:worksheet xmlns:x="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+    <x:sheetData>
+      ${rows.map((row, rowIndex) => (
+        `<x:row r="${rowIndex + 1}">${row.map((value, columnIndex) => (
+          value === ""
+            ? ""
+            : `<x:c r="${columnName(columnIndex)}${rowIndex + 1}" t="inlineStr"><x:is><x:t>${escapeXml(value)}</x:t></x:is></x:c>`
+        )).join("")}</x:row>`
+      )).join("")}
+    </x:sheetData>
+  </x:worksheet>`;
+}
+
+function createZip(files) {
+  const localParts = [];
+  const centralParts = [];
+  let offset = 0;
+
+  for (const [name, text] of files) {
+    const nameBuffer = Buffer.from(name, "utf8");
+    const compressed = deflateRawSync(Buffer.from(text, "utf8"));
+    const local = Buffer.alloc(30);
+    local.writeUInt32LE(0x04034b50, 0);
+    local.writeUInt16LE(20, 4);
+    local.writeUInt16LE(8, 8);
+    local.writeUInt32LE(0, 14);
+    local.writeUInt32LE(compressed.length, 18);
+    local.writeUInt32LE(Buffer.byteLength(text, "utf8"), 22);
+    local.writeUInt16LE(nameBuffer.length, 26);
+
+    localParts.push(local, nameBuffer, compressed);
+
+    const central = Buffer.alloc(46);
+    central.writeUInt32LE(0x02014b50, 0);
+    central.writeUInt16LE(20, 4);
+    central.writeUInt16LE(20, 6);
+    central.writeUInt16LE(8, 10);
+    central.writeUInt32LE(0, 16);
+    central.writeUInt32LE(compressed.length, 20);
+    central.writeUInt32LE(Buffer.byteLength(text, "utf8"), 24);
+    central.writeUInt16LE(nameBuffer.length, 28);
+    central.writeUInt32LE(offset, 42);
+    centralParts.push(central, nameBuffer);
+
+    offset += local.length + nameBuffer.length + compressed.length;
+  }
+
+  const centralOffset = offset;
+  const centralDirectory = Buffer.concat(centralParts);
+  const eocd = Buffer.alloc(22);
+  eocd.writeUInt32LE(0x06054b50, 0);
+  eocd.writeUInt16LE(files.size, 8);
+  eocd.writeUInt16LE(files.size, 10);
+  eocd.writeUInt32LE(centralDirectory.length, 12);
+  eocd.writeUInt32LE(centralOffset, 16);
+
+  return Buffer.concat([...localParts, centralDirectory, eocd]);
+}
+
+function columnName(index) {
+  let name = "";
+  let value = index + 1;
+  while (value > 0) {
+    value -= 1;
+    name = String.fromCharCode(65 + (value % 26)) + name;
+    value = Math.floor(value / 26);
+  }
+  return name;
+}
+
+function escapeXml(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}

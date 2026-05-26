@@ -79,6 +79,33 @@ describe("FIT parser and writer", () => {
     expect(editedRecord?.fields.find((field) => field.number === 3)?.value).toBe(151);
   });
 
+  it("exports null field edits as FIT invalid values", () => {
+    const document = parseFitDocument(makeRepresentativeFitFile());
+    const record = document.messages.find((message) => message.messageName === "record" && message.fields.some((field) => field.name === "heart_rate"));
+    const fieldEditedById = record?.fields.find((field) => field.number === 6);
+
+    expect(record).toBeDefined();
+    expect(fieldEditedById).toBeDefined();
+    const edited = writeFitDocument(document, {
+      fieldEdits: [
+        { messageId: record!.id, fieldNumber: 3, value: null },
+        {
+          messageId: record!.id,
+          fieldId: fieldEditedById!.id,
+          fieldNumber: fieldEditedById!.number,
+          value: null
+        }
+      ]
+    });
+    const reparsed = parseFitDocument(edited);
+    const editedRecord = reparsed.messages.find((message) => message.id === record!.id);
+
+    expect(reparsed.header.headerCrcValid).toBe(true);
+    expect(reparsed.checksum.fileCrcValid).toBe(true);
+    expect(editedRecord?.fields.find((field) => field.number === 3)?.value).toBeNull();
+    expect(editedRecord?.fields.find((field) => field.number === 6)?.value).toBeNull();
+  });
+
   it("exports an added raw normal field with an extended definition for that message", () => {
     const document = parseFitDocument(makeRepresentativeFitFile());
     const record = document.messages.find((message) => message.messageName === "record" && message.fields.some((field) => field.name === "heart_rate"));

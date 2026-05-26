@@ -28,12 +28,17 @@ import {
   createEmptyEditOverlay,
   deleteMessage as deleteMessageFromOverlay,
   flattenEditOverlay,
+  getEditsForMessage,
   insertDuplicateMessage,
   insertInsertedMessageBefore,
   replaceMessageEdits,
   stageEditsIntoOverlay,
   type FitEditOverlay,
 } from "./editOverlay";
+import {
+  buildFitLapGpsSummaryEdits,
+  buildFitSessionGpsSummaryEdits,
+} from "./activitySummary";
 import {
   buildMessageSnapshotFromAppliedEdits,
   createRawInsertedMessage,
@@ -46,11 +51,27 @@ import {
   validateFitEditorDocument,
 } from "./validation";
 import {
+  buildGpsFixedRepair,
+  buildGpsFilledRepair,
+  buildGpsRecordPositionEdits,
+  buildGpsRecordSpeedEdits,
+  buildGpsEraseRangeEdits,
+  buildGpsRepairAnchorPlacementEdits,
+  buildGpsRepairEditsFromPoints,
   buildGpsRepairPreviewEdits,
   collectGpsRepairRuns,
   collectGpsRouteSegments,
+  calculateRouteSegmentsDistanceMeters,
+  makeGpsRepairRunKey,
+  updateGpsFixedRepairEditablePoint,
+  type FitGpsFixedRepair,
   type FitGpsRepairRun,
+  type FitGpsRoutePoint,
 } from "./gpsRepair";
+import {
+  buildGpsMapView,
+  type FitGpsMapView,
+} from "./gpsEditRoute";
 import {
   createGraphHopperRouteProvider,
   type FitRoutePoint,
@@ -86,12 +107,16 @@ export interface FitEditorSession {
   readonly editingMessageCanAddFields: boolean;
   readonly showDownloadAction: boolean;
   readonly gpsRepairOpen: boolean;
+  readonly effectiveDocument: FitDocument | null;
   readonly gpsRepairRuns: readonly FitGpsRepairRun[];
-  readonly gpsRouteSegments: readonly (readonly FitRoutePoint[])[];
+  readonly gpsFixedRepairs: readonly FitGpsFixedRepair[];
+  readonly gpsMapView: FitGpsMapView | null;
+  readonly gpsRouteSegments: readonly (readonly FitGpsRoutePoint[])[];
   readonly selectedGpsRepairRunIndex: number | null;
   readonly gpsRepairPreviewRoute: FitRouteResponse | null;
   readonly gpsRepairPreviewEdits: readonly FitFieldValueEdit[];
   readonly gpsRepairStatus: FitGpsRepairStatus;
+  readonly gpsRepairFixingRunKey: string | null;
   readonly gpsRepairErrorMessage: string | null;
   readonly loadFile: (file: File | undefined) => Promise<void>;
   readonly setActiveFilter: Dispatch<SetStateAction<FitMessageFilter>>;
@@ -118,6 +143,23 @@ export interface FitEditorSession {
   readonly openGpsRepair: () => void;
   readonly closeGpsRepair: () => void;
   readonly selectGpsRepairRun: (index: number) => void;
+  readonly fillGpsRepairRun: (index: number) => void;
+  readonly fixGpsRepairRun: (index: number) => Promise<void>;
+  readonly fixGpsFixedRepair: (repairKey: string) => Promise<void>;
+  readonly moveGpsFixedRepairPoint: (
+    repairKey: string,
+    pointIndex: number,
+    point: FitRoutePoint,
+  ) => void;
+  readonly moveGpsRecordPoint: (recordId: string, point: FitRoutePoint) => void;
+  readonly eraseGpsRange: (startRecordId: string, endRecordId: string) => void;
+  readonly placeGpsRepairAnchor: (
+    runIndex: number,
+    point: FitRoutePoint,
+  ) => void;
+  readonly syncSessionDistanceToGps: () => void;
+  readonly syncLapSummariesToGps: () => void;
+  readonly syncRecordSpeedsToGps: () => void;
   readonly requestGpsRepairPreview: () => Promise<void>;
   readonly cancelGpsRepairPreview: () => void;
   readonly applyGpsRepairPreview: () => void;
@@ -190,8 +232,13 @@ export function useFitEditorSession(): FitEditorSession {
   const [gpsRepairPreviewEdits, setGpsRepairPreviewEdits] = useState<
     readonly FitFieldValueEdit[]
   >([]);
+  const [gpsFixedRepairs, setGpsFixedRepairs] = useState<
+    readonly FitGpsFixedRepair[]
+  >([]);
   const [gpsRepairStatus, setGpsRepairStatus] =
     useState<FitGpsRepairStatus>("idle");
+  const [gpsRepairFixingRunKey, setGpsRepairFixingRunKey] =
+    useState<string | null>(null);
   const [gpsRepairErrorMessage, setGpsRepairErrorMessage] =
     useState<string | null>(null);
   const gpsRepairRequestGenerationRef = useRef(0);
@@ -239,6 +286,10 @@ export function useFitEditorSession(): FitEditorSession {
   const gpsRouteSegments = useMemo(
     () =>
       effectiveGpsDocument ? collectGpsRouteSegments(effectiveGpsDocument) : [],
+    [effectiveGpsDocument],
+  );
+  const gpsMapView = useMemo(
+    () => (effectiveGpsDocument ? buildGpsMapView(effectiveGpsDocument) : null),
     [effectiveGpsDocument],
   );
   const selectedGpsRepairRun =
@@ -357,6 +408,7 @@ export function useFitEditorSession(): FitEditorSession {
     setGpsRepairPreviewRoute(null);
     setGpsRepairPreviewEdits([]);
     setGpsRepairStatus("idle");
+    setGpsRepairFixingRunKey(null);
     setGpsRepairErrorMessage(null);
   }, [selectedGpsRepairRunKey]);
   const setActiveFilter: Dispatch<SetStateAction<FitMessageFilter>> = (
@@ -402,7 +454,9 @@ export function useFitEditorSession(): FitEditorSession {
     setSelectedGpsRepairRunIndex(null);
     setGpsRepairPreviewRoute(null);
     setGpsRepairPreviewEdits([]);
+    setGpsFixedRepairs([]);
     setGpsRepairStatus("idle");
+    setGpsRepairFixingRunKey(null);
     setGpsRepairErrorMessage(null);
 
     try {
@@ -761,7 +815,7 @@ export function useFitEditorSession(): FitEditorSession {
 
   async function requestGpsRepairPreview() {
     const run = selectedGpsRepairRun;
-    if (!run) {
+    if (!run?.before || !run.after) {
       return;
     }
 
@@ -810,6 +864,7 @@ export function useFitEditorSession(): FitEditorSession {
       setGpsRepairPreviewRoute(null);
       setGpsRepairPreviewEdits([]);
       setGpsRepairStatus("error");
+      setGpsRepairFixingRunKey(null);
       setGpsRepairErrorMessage(
         error instanceof Error
           ? error.message
@@ -823,12 +878,14 @@ export function useFitEditorSession(): FitEditorSession {
     setGpsRepairPreviewRoute(null);
     setGpsRepairPreviewEdits([]);
     setGpsRepairStatus("idle");
+    setGpsRepairFixingRunKey(null);
     setGpsRepairErrorMessage(null);
   }
 
   function applyGpsRepairPreview() {
     if (
       !selectedGpsRepairRun ||
+      !gpsRepairPreviewRoute ||
       gpsRepairPreviewEdits.length === 0 ||
       !doesPreviewMatchRun(gpsRepairPreviewEdits, selectedGpsRepairRun)
     ) {
@@ -838,7 +895,319 @@ export function useFitEditorSession(): FitEditorSession {
     setEditOverlay((currentOverlay) =>
       stageEditsIntoOverlay(currentOverlay, gpsRepairPreviewEdits),
     );
+    setGpsFixedRepairs((currentRepairs) =>
+      upsertFixedRepair(
+        currentRepairs,
+        buildGpsFixedRepair(selectedGpsRepairRun, gpsRepairPreviewRoute),
+      ),
+    );
     cancelGpsRepairPreview();
+  }
+
+  async function fixGpsRepairRun(index: number) {
+    const run = gpsRepairRuns[index];
+    if (!run?.before || !run.after) {
+      return;
+    }
+
+    await fixGpsRepair(run);
+  }
+
+  async function fixGpsFixedRepair(repairKey: string) {
+    const repair = gpsFixedRepairs.find(
+      (currentRepair) => currentRepair.key === repairKey,
+    );
+    if (!repair?.run.before || !repair.run.after) {
+      return;
+    }
+
+    await fixGpsRepair(repair.run);
+  }
+
+  async function fixGpsRepair(run: FitGpsRepairRun) {
+    const before = run.before;
+    const after = run.after;
+    if (!before || !after) {
+      return;
+    }
+
+    const requestGeneration = gpsRepairRequestGenerationRef.current + 1;
+    gpsRepairRequestGenerationRef.current = requestGeneration;
+    const runKey = makeGpsRepairRunKey(run);
+    setGpsRepairStatus("loading");
+    setGpsRepairFixingRunKey(runKey);
+    setGpsRepairErrorMessage(null);
+    setGpsRepairPreviewRoute(null);
+    setGpsRepairPreviewEdits([]);
+
+    try {
+      const provider = createGraphHopperRouteProvider();
+      const request = provider.buildRequest({
+        profile: "bike",
+        points: [
+          {
+            lat: before.latitudeDegrees,
+            lon: before.longitudeDegrees,
+          },
+          {
+            lat: after.latitudeDegrees,
+            lon: after.longitudeDegrees,
+          },
+        ],
+      });
+      const response = await fetch(request.url, request.init);
+      if (!response.ok) {
+        throw new Error(`Route request failed with HTTP ${response.status}.`);
+      }
+
+      const route = provider.parseResponse(await response.json());
+      const edits = buildGpsRepairPreviewEdits(run, route);
+      if (edits.length === 0) {
+        throw new Error("The route did not produce GPS repairs for this gap.");
+      }
+
+      if (requestGeneration !== gpsRepairRequestGenerationRef.current) {
+        return;
+      }
+
+      setEditOverlay((currentOverlay) =>
+        stageEditsIntoOverlay(currentOverlay, edits),
+      );
+      setGpsFixedRepairs((currentRepairs) =>
+        upsertFixedRepair(currentRepairs, buildGpsFixedRepair(run, route)),
+      );
+      setGpsRepairStatus("idle");
+      setGpsRepairFixingRunKey(null);
+      setGpsRepairErrorMessage(null);
+    } catch (error) {
+      if (requestGeneration !== gpsRepairRequestGenerationRef.current) {
+        return;
+      }
+
+      setGpsRepairStatus("error");
+      setGpsRepairFixingRunKey(runKey);
+      setGpsRepairErrorMessage(
+        error instanceof Error ? error.message : "Could not fix this GPS gap.",
+      );
+    }
+  }
+
+  function fillGpsRepairRun(index: number) {
+    const run = gpsRepairRuns[index];
+    if (!run?.before || !run.after) {
+      return;
+    }
+
+    const repair = buildGpsFilledRepair(run);
+    const edits = buildGpsRepairEditsFromPoints(run, repair.editablePoints);
+    if (edits.length === 0) {
+      setGpsRepairStatus("error");
+      setGpsRepairFixingRunKey(makeGpsRepairRunKey(run));
+      setGpsRepairErrorMessage("The GPS gap does not have enough timing data to fill editable points.");
+      return;
+    }
+
+    setEditOverlay((currentOverlay) =>
+      stageEditsIntoOverlay(currentOverlay, edits),
+    );
+    setGpsFixedRepairs((currentRepairs) =>
+      upsertFixedRepair(currentRepairs, repair),
+    );
+    setGpsRepairStatus("idle");
+    setGpsRepairFixingRunKey(null);
+    setGpsRepairErrorMessage(null);
+  }
+
+  function moveGpsFixedRepairPoint(
+    repairKey: string,
+    pointIndex: number,
+    point: FitRoutePoint,
+  ) {
+    const repair = gpsFixedRepairs.find(
+      (currentRepair) => currentRepair.key === repairKey,
+    );
+    if (!repair) {
+      return;
+    }
+
+    const nextRepair = updateGpsFixedRepairEditablePoint(
+      repair,
+      pointIndex,
+      point,
+    );
+    if (nextRepair === repair) {
+      return;
+    }
+
+    const edits = buildGpsRepairEditsFromPoints(
+      nextRepair.run,
+      nextRepair.editablePoints,
+    );
+    if (edits.length === 0) {
+      return;
+    }
+
+    setGpsFixedRepairs((currentRepairs) =>
+      upsertFixedRepair(currentRepairs, nextRepair),
+    );
+    setEditOverlay((currentOverlay) =>
+      stageEditsIntoOverlay(currentOverlay, edits),
+    );
+    setGpsRepairStatus("idle");
+    setGpsRepairFixingRunKey(null);
+    setGpsRepairErrorMessage(null);
+  }
+
+  function moveGpsRecordPoint(recordId: string, point: FitRoutePoint) {
+    if (!effectiveGpsDocument) {
+      return;
+    }
+
+    const edits = buildGpsRecordPositionEdits(
+      effectiveGpsDocument,
+      recordId,
+      point,
+    );
+    if (edits.length === 0) {
+      return;
+    }
+
+    setEditOverlay((currentOverlay) =>
+      stageEditsIntoOverlay(currentOverlay, edits),
+    );
+    setGpsRepairStatus("idle");
+    setGpsRepairFixingRunKey(null);
+    setGpsRepairErrorMessage(null);
+  }
+
+  function eraseGpsRange(startRecordId: string, endRecordId: string) {
+    if (!effectiveGpsDocument) {
+      return;
+    }
+
+    const edits = buildGpsEraseRangeEdits(
+      effectiveGpsDocument,
+      startRecordId,
+      endRecordId,
+    );
+    if (edits.length === 0) {
+      return;
+    }
+
+    const erasedMessageIds = new Set(edits.map((edit) => edit.messageId));
+    setEditOverlay((currentOverlay) =>
+      stageEditsIntoOverlay(currentOverlay, edits),
+    );
+    setGpsFixedRepairs((currentRepairs) =>
+      currentRepairs.filter(
+        (repair) =>
+          !doesRepairOverlapMessages(repair, erasedMessageIds),
+      ),
+    );
+    setGpsRepairStatus("idle");
+    setGpsRepairFixingRunKey(null);
+    setGpsRepairErrorMessage(null);
+  }
+
+  function placeGpsRepairAnchor(runIndex: number, point: FitRoutePoint) {
+    const run = gpsRepairRuns[runIndex];
+    if (!run || (run.before && run.after)) {
+      return;
+    }
+
+    const placement = run.before && !run.after ? "end" : "start";
+    const edits = buildGpsRepairAnchorPlacementEdits(run, placement, point);
+    if (edits.length === 0) {
+      return;
+    }
+
+    setEditOverlay((currentOverlay) =>
+      stageEditsIntoOverlay(currentOverlay, edits),
+    );
+    setGpsRepairStatus("idle");
+    setGpsRepairFixingRunKey(null);
+    setGpsRepairErrorMessage(null);
+  }
+
+  function syncSessionDistanceToGps() {
+    if (!effectiveGpsDocument) {
+      return;
+    }
+
+    const distanceMeters = calculateRouteSegmentsDistanceMeters(gpsRouteSegments);
+    if (distanceMeters === null) {
+      return;
+    }
+
+    const edits = buildFitSessionGpsSummaryEdits(
+      effectiveGpsDocument,
+      gpsRouteSegments,
+      distanceMeters,
+    );
+    if (edits.length === 0) {
+      return;
+    }
+
+    const session = findSessionMessage(effectiveGpsDocument);
+    if (!session) {
+      return;
+    }
+
+    setEditOverlay((currentOverlay) => {
+      const preservedEdits = getEditsForMessage(currentOverlay, session.id)
+        .filter((edit) => !isSessionGpsSummaryEdit(edit));
+      return replaceMessageEdits(currentOverlay, session.id, [
+        ...preservedEdits,
+        ...edits,
+      ]);
+    });
+  }
+
+  function syncLapSummariesToGps() {
+    if (!effectiveGpsDocument) {
+      return;
+    }
+
+    const edits = buildFitLapGpsSummaryEdits(
+      effectiveGpsDocument,
+      gpsRouteSegments,
+    );
+    if (edits.length === 0) {
+      return;
+    }
+
+    const editsByMessageId = groupEditsByMessageId(edits);
+    setEditOverlay((currentOverlay) => {
+      let nextOverlay = currentOverlay;
+      for (const [messageId, nextEdits] of editsByMessageId) {
+        const preservedEdits = getEditsForMessage(nextOverlay, messageId)
+          .filter((edit) => !isLapGpsSummaryEdit(edit));
+        nextOverlay = replaceMessageEdits(nextOverlay, messageId, [
+          ...preservedEdits,
+          ...nextEdits,
+        ]);
+      }
+
+      return nextOverlay;
+    });
+  }
+
+  function syncRecordSpeedsToGps() {
+    if (!effectiveGpsDocument) {
+      return;
+    }
+
+    const edits = buildGpsRecordSpeedEdits(
+      effectiveGpsDocument,
+      gpsRouteSegments,
+    );
+    if (edits.length === 0) {
+      return;
+    }
+
+    setEditOverlay((currentOverlay) =>
+      stageEditsIntoOverlay(currentOverlay, edits),
+    );
   }
 
   return {
@@ -864,12 +1233,16 @@ export function useFitEditorSession(): FitEditorSession {
     editingMessageCanAddFields,
     showDownloadAction,
     gpsRepairOpen,
+    effectiveDocument: effectiveGpsDocument,
     gpsRepairRuns,
+    gpsFixedRepairs,
+    gpsMapView,
     gpsRouteSegments,
     selectedGpsRepairRunIndex,
     gpsRepairPreviewRoute,
     gpsRepairPreviewEdits,
     gpsRepairStatus,
+    gpsRepairFixingRunKey,
     gpsRepairErrorMessage,
     loadFile,
     setActiveFilter,
@@ -894,6 +1267,16 @@ export function useFitEditorSession(): FitEditorSession {
     openGpsRepair,
     closeGpsRepair,
     selectGpsRepairRun,
+    fillGpsRepairRun,
+    fixGpsRepairRun,
+    fixGpsFixedRepair,
+    moveGpsFixedRepairPoint,
+    moveGpsRecordPoint,
+    eraseGpsRange,
+    placeGpsRepairAnchor,
+    syncSessionDistanceToGps,
+    syncLapSummariesToGps,
+    syncRecordSpeedsToGps,
     requestGpsRepairPreview,
     cancelGpsRepairPreview,
     applyGpsRepairPreview,
@@ -1087,7 +1470,7 @@ export function getFitEditorStatusTitle(
 
   return dragging
     ? "Release to open this FIT file"
-    : "Upload a FIT file to start";
+    : "Open a FIT file to start";
 }
 
 export function getFitEditorStatusHelper(
@@ -1104,7 +1487,7 @@ export function getFitEditorStatusHelper(
 
   return dragging
     ? "Drop the file here to parse it locally and open the editable message list."
-    : "Use Upload in the header, or drop a .fit file here to inspect its messages in file order.";
+    : "Use Open in the header, or drop a .fit file here to inspect its messages in file order.";
 }
 
 export function clearDeletedMessageEditor(
@@ -1260,14 +1643,6 @@ function buildEffectiveGpsDocument(
   };
 }
 
-function makeGpsRepairRunKey(run: FitGpsRepairRun): string {
-  return [
-    run.before.record.id,
-    run.after.record.id,
-    ...run.missingRecords.map((missingRecord) => missingRecord.record.id),
-  ].join(":");
-}
-
 function doesPreviewMatchRun(
   edits: readonly FitFieldValueEdit[],
   run: FitGpsRepairRun,
@@ -1279,6 +1654,112 @@ function doesPreviewMatchRun(
   return edits.every((edit) => runMessageIds.has(edit.messageId));
 }
 
+function upsertFixedRepair(
+  repairs: readonly FitGpsFixedRepair[],
+  nextRepair: FitGpsFixedRepair,
+): readonly FitGpsFixedRepair[] {
+  return [
+    ...repairs.filter((repair) => repair.key !== nextRepair.key),
+    nextRepair,
+  ].sort(
+    (left, right) => left.beforeTimestampSeconds - right.beforeTimestampSeconds,
+  );
+}
+
+function doesRepairOverlapMessages(
+  repair: FitGpsFixedRepair,
+  messageIds: ReadonlySet<string>,
+): boolean {
+  return (
+    (repair.run.before ? messageIds.has(repair.run.before.record.id) : false) ||
+    (repair.run.after ? messageIds.has(repair.run.after.record.id) : false) ||
+    repair.run.missingRecords.some((missingRecord) =>
+      messageIds.has(missingRecord.record.id),
+    )
+  );
+}
+
+function findSessionMessage(
+  document: Pick<FitDocument, "messages">,
+): FitDataRecord | null {
+  return (
+    document.messages.find(
+      (message) =>
+        message.globalMessageNumber === 18 || message.messageName === "session",
+    ) ?? null
+  );
+}
+
+function groupEditsByMessageId(
+  edits: readonly FitFieldValueEdit[],
+): ReadonlyMap<string, FitFieldValueEdit[]> {
+  const groups = new Map<string, FitFieldValueEdit[]>();
+  for (const edit of edits) {
+    const messageEdits = groups.get(edit.messageId);
+    if (messageEdits) {
+      messageEdits.push(edit);
+      continue;
+    }
+
+    groups.set(edit.messageId, [edit]);
+  }
+
+  return groups;
+}
+
+function isSessionGpsSummaryEdit(edit: FitFieldValueEdit): boolean {
+  if (
+    edit.fieldName === "total_distance" ||
+    edit.fieldName === "start_position_lat" ||
+    edit.fieldName === "start_position_long" ||
+    edit.fieldName === "end_position_lat" ||
+    edit.fieldName === "end_position_long" ||
+    edit.fieldName === "nec_lat" ||
+    edit.fieldName === "nec_long" ||
+    edit.fieldName === "swc_lat" ||
+    edit.fieldName === "swc_long"
+  ) {
+    return true;
+  }
+
+  return (
+    edit.fieldNumber === 3 ||
+    edit.fieldNumber === 4 ||
+    edit.fieldNumber === 9 ||
+    edit.fieldNumber === 29 ||
+    edit.fieldNumber === 30 ||
+    edit.fieldNumber === 31 ||
+    edit.fieldNumber === 32 ||
+    edit.fieldNumber === 38 ||
+    edit.fieldNumber === 39
+  );
+}
+
+function isLapGpsSummaryEdit(edit: FitFieldValueEdit): boolean {
+  if (
+    edit.fieldName === "start_position_lat" ||
+    edit.fieldName === "start_position_long" ||
+    edit.fieldName === "end_position_lat" ||
+    edit.fieldName === "end_position_long" ||
+    edit.fieldName === "nec_lat" ||
+    edit.fieldName === "nec_long" ||
+    edit.fieldName === "swc_lat" ||
+    edit.fieldName === "swc_long"
+  ) {
+    return true;
+  }
+
+  return (
+    edit.fieldNumber === 3 ||
+    edit.fieldNumber === 4 ||
+    edit.fieldNumber === 5 ||
+    edit.fieldNumber === 6 ||
+    edit.fieldNumber === 27 ||
+    edit.fieldNumber === 28 ||
+    edit.fieldNumber === 29 ||
+    edit.fieldNumber === 30
+  );
+}
 
 export function makeDownloadName(sourceName: string): string {
   return sourceName.replace(/\.fit$/i, "") + "-fitx.fit";

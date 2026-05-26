@@ -23,10 +23,10 @@ import {
 interface StatusPanelProps {
   state: FitEditorState;
   dragging: boolean;
-  onUpload: () => void;
+  onOpenFile: () => void;
 }
 
-export function StatusPanel({ state, dragging, onUpload }: StatusPanelProps) {
+export function StatusPanel({ state, dragging, onOpenFile }: StatusPanelProps) {
   const loading = state.status === "loading";
   const error = state.status === "error";
   const empty = state.status === "empty";
@@ -71,7 +71,7 @@ export function StatusPanel({ state, dragging, onUpload }: StatusPanelProps) {
             <button
               className={dangerButton}
               type="button"
-              onClick={onUpload}
+              onClick={onOpenFile}
               style={{ marginTop: 20 }}
             >
               Try another file
